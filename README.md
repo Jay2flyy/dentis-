@@ -196,10 +196,27 @@ Add/edit services in Supabase `services` table or in the schema.
 ## 🚀 Deployment
 
 ### Vercel (Recommended)
+
+1. **Push to GitHub**
 ```bash
-npm run build
-vercel --prod
+git add .
+git commit -m "Deploy to Vercel"
+git push origin master
 ```
+
+2. **Deploy to Vercel**
+- Go to [vercel.com](https://vercel.com)
+- Click "New Project"
+- Connect GitHub and select your repository
+- Click "Deploy"
+
+3. **Add Environment Variables**
+- Go to Project Settings → Environment Variables
+- Add:
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+- Click "Save"
+- Redeploy
 
 ### Netlify
 ```bash
