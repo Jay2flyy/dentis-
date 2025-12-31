@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Search, Filter, Plus, Edit, Eye, Mail, Phone, Calendar, Award, DollarSign, Download, FileText } from 'lucide-react';
-import { Patient, LoyaltyPoints } from '../../types';
+import { Users, Search, Plus, Edit, Eye, Mail, Phone, Calendar, Award, DollarSign, FileText } from 'lucide-react';
+import { Patient } from '../../types';
 
 interface PatientsManagementProps {
   patients: Patient[];

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Calendar, Phone, MessageCircle, ArrowRight } from 'lucide-react';
+import { Calendar, Phone, ArrowRight } from 'lucide-react';
 import { useInView } from '../hooks/useInView';
 
 interface CTASectionProps {

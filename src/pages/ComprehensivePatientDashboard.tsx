@@ -19,10 +19,10 @@ const ComprehensivePatientDashboard = () => {
   const [activeSection, setActiveSection] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState(3);
+  const [notifications, _setNotifications] = useState(3);
 
   // Mock data - will be replaced with actual API calls
-  const [dashboardData, setDashboardData] = useState({
+  const [dashboardData, _setDashboardData] = useState({
     stats: {
       upcoming_appointments: 2,
       loyalty_points: 450,
@@ -125,9 +125,9 @@ const ComprehensivePatientDashboard = () => {
           <AppointmentsSection
             appointments={dashboardData.appointments}
             onBookNew={() => navigate('/booking')}
-            onReschedule={(id) => toast.info('Reschedule feature coming soon')}
-            onCancel={(id) => toast.info('Cancel feature coming soon')}
-            onDownload={(id) => toast.info('Download feature coming soon')}
+            onReschedule={(_id) => toast('Reschedule feature coming soon', { icon: '📅' })}
+            onCancel={(_id) => toast('Cancel feature coming soon', { icon: '❌' })}
+            onDownload={(_id) => toast('Download feature coming soon', { icon: '⬇️' })}
           />
         );
       case 'loyalty':
@@ -138,7 +138,7 @@ const ComprehensivePatientDashboard = () => {
             transactions={dashboardData.transactions}
             redemptions={dashboardData.redemptions}
             referrals={dashboardData.referrals}
-            onRedeemReward={(id) => toast.info('Reward redemption coming soon')}
+            onRedeemReward={(_id) => toast('Reward redemption coming soon', { icon: '🎁' })}
           />
         );
       case 'records':
@@ -149,9 +149,8 @@ const ComprehensivePatientDashboard = () => {
             treatmentPlans={dashboardData.treatmentPlans}
             prescriptions={dashboardData.prescriptions}
             medicalInfo={dashboardData.medicalInfo}
-            onUploadDocument={() => toast.info('Upload feature coming soon')}
-            onDownloadDocument={(id) => toast.info('Download feature coming soon')}
-            onPrintRecords={() => toast.info('Print feature coming soon')}
+            onUploadDocument={() => toast('Upload feature coming soon', { icon: '⬆️' })}
+            onDownloadDocument={(_id) => toast('Download feature coming soon', { icon: '⬇️' })}
           />
         );
       case 'billing':
@@ -161,11 +160,11 @@ const ComprehensivePatientDashboard = () => {
             payments={dashboardData.payments}
             paymentPlans={dashboardData.paymentPlans}
             insuranceInfo={dashboardData.insuranceInfo}
-            onPayInvoice={(id) => toast.info('Payment feature coming soon')}
-            onDownloadInvoice={(id) => toast.info('Download feature coming soon')}
-            onPrintInvoice={(id) => toast.info('Print feature coming soon')}
-            onSetupPaymentPlan={(id) => toast.info('Payment plan setup coming soon')}
-            onAddInsurance={() => toast.info('Add insurance feature coming soon')}
+            onPayInvoice={(_id) => toast('Payment feature coming soon', { icon: '💳' })}
+            onDownloadInvoice={(_id) => toast('Download feature coming soon', { icon: '⬇️' })}
+            onPrintInvoice={(_id) => toast('Print feature coming soon', { icon: '🖨️' })}
+            onSetupPaymentPlan={(_id) => toast('Payment plan setup coming soon', { icon: '📋' })}
+            onAddInsurance={() => toast('Add insurance feature coming soon', { icon: '🛡️' })}
           />
         );
       case 'messages':

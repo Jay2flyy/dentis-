@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Calendar, Shield, Clock, Award, Star, CheckCircle, ArrowRight } from 'lucide-react';
+import { Calendar, Shield, Clock, Award, Star, ArrowRight } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
 

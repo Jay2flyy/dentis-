@@ -35,7 +35,7 @@ const NewHomePage = () => {
     );
   };
 
-  const TreatmentCard = ({ title, description, icon }: any) => {
+  const TreatmentCard = ({ title, description }: any) => {
     return (
       <div className="bg-white p-6 rounded-xl border-2 border-gray-200 hover:border-purple-400 transition-colors">
         <div className="flex justify-between items-start mb-3">

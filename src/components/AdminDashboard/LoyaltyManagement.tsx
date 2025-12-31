@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Gift, TrendingUp, Award, Plus, Edit, Trash2, Check, X, DollarSign, Users, BarChart3 } from 'lucide-react';
+import { Gift, TrendingUp, Award, Plus, Edit, Trash2, Check, X, Users, BarChart3 } from 'lucide-react';
 import { Reward, RewardRedemption } from '../../types';
 
 interface LoyaltyManagementProps {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Image, Pill, AlertCircle, Download, Upload, Eye, Printer, Heart, Activity } from 'lucide-react';
+import { FileText, Image, Pill, AlertCircle, Download, Eye, Printer, Activity } from 'lucide-react';
 import { DentalHistory, MedicalDocument, TreatmentPlan, Prescription, PatientMedicalInfo } from '../../types';
 import DocumentUpload from './DocumentUpload';
 import { downloadDocument, mockDownloadDocument } from '../../lib/fileUtils';
@@ -15,7 +15,6 @@ interface MedicalRecordsSectionProps {
   medicalInfo: PatientMedicalInfo[];
   onUploadDocument: () => void;
   onDownloadDocument: (documentId: string) => void;
-  onPrintRecords: () => void;
 }
 
 const MedicalRecordsSection = ({
@@ -26,7 +25,6 @@ const MedicalRecordsSection = ({
   medicalInfo,
   onUploadDocument,
   onDownloadDocument,
-  onPrintRecords
 }: MedicalRecordsSectionProps) => {
   const [activeTab, setActiveTab] = useState<'history' | 'documents' | 'treatments' | 'prescriptions'>('history');
   const { demoMode } = useAuth();

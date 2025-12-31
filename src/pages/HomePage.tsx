@@ -1,14 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Calendar, Shield, Clock, Award, Star, CheckCircle, ArrowRight } from 'lucide-react';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef } from 'react';
+import { motion } from 'framer-motion';
 
-import { useInView } from '../hooks/useInView';
+
 
 const HomePage = () => {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollY } = useScroll();
-  const heroOpacity = useTransform(scrollY, [0, 300], [1, 0]);
+
   
   const features = [
     {

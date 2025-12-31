@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { 
-  Calendar, Users, DollarSign, TrendingUp, Clock, CheckCircle, 
+  Calendar, Users, DollarSign, TrendingUp, Clock, 
   AlertCircle, Gift, Star, Activity 
 } from 'lucide-react';
 import { AdminDashboardStats } from '../../types';

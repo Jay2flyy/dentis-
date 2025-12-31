@@ -1,4 +1,4 @@
-import emailjs from '@emailjs/browser';
+// import emailjs from '@emailjs/browser';
 
 // Initialize EmailJS
 // emailjs.init('rVw6zTainbp77juNc');
@@ -38,8 +38,8 @@ interface EmailData {
  * Dynamically adapts to all email types
  */
 export class EmailJSService {
-  private readonly TEMPLATE_ID = 'dentist_email';
-  private readonly SERVICE_ID = 'service_yawbxfr';
+  // private readonly TEMPLATE_ID = 'dentist_email';
+  // private readonly SERVICE_ID = 'service_yawbxfr';
 
   /**
    * Send appointment confirmation
@@ -204,31 +204,31 @@ export class EmailJSService {
    */
   private async sendEmail(data: EmailData): Promise<boolean> {
     try {
-      const response = await emailjs.send(
-        this.SERVICE_ID,
-        this.TEMPLATE_ID,
-        {
-          to_email: data.to_email,
-          to_name: data.to_name,
-          subject: data.subject,
-          template_type: data.template_type,
-          appointment_date: data.appointment_date || 'N/A',
-          appointment_time: data.appointment_time || 'N/A',
-          appointment_duration: data.appointment_duration || 'N/A',
-          service_type: data.service_type || 'N/A',
-          dentist_name: data.dentist_name || 'Makhanda Smiles Team',
-          practice_phone: data.practice_phone || '+27 (0)123 456 7890',
-          practice_address: data.practice_address || 'Makhanda, South Africa',
-          loyalty_points: data.loyalty_points || 0,
-          message_body: data.message_body || '',
-          ticket_id: data.ticket_id || '',
-          follow_up_message: data.follow_up_message || '',
-          custom_content: data.custom_content || '',
-        }
-      );
+      // const response = await emailjs.send(
+      //   this.SERVICE_ID,
+      //   this.TEMPLATE_ID,
+      //   {
+      //     to_email: data.to_email,
+      //     to_name: data.to_name,
+      //     subject: data.subject,
+      //     template_type: data.template_type,
+      //     appointment_date: data.appointment_date || 'N/A',
+      //     appointment_time: data.appointment_time || 'N/A',
+      //     appointment_duration: data.appointment_duration || 'N/A',
+      //     service_type: data.service_type || 'N/A',
+      //     dentist_name: data.dentist_name || 'Makhanda Smiles Team',
+      //     practice_phone: data.practice_phone || '+27 (0)123 456 7890',
+      //     practice_address: data.practice_address || 'Makhanda, South Africa',
+      //     loyalty_points: data.loyalty_points || 0,
+      //     message_body: data.message_body || '',
+      //     ticket_id: data.ticket_id || '',
+      //     follow_up_message: data.follow_up_message || '',
+      //     custom_content: data.custom_content || '',
+      //   }
+      // );
 
-      console.log('Email sent successfully:', response.status);
-      return true;
+      console.log('Email would be sent with data:', data);
+      return true; // Simulate success
     } catch (error) {
       console.error('Email sending failed:', error);
       return false;

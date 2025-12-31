@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Home, Calendar, Users, Gift, FileText, DollarSign, MessageSquare,
-  Settings, LogOut, Menu, X, Bell, BarChart3, Briefcase, TrendingUp
+  Settings, LogOut, Menu, X, Bell, BarChart3, Briefcase
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import AdminOverview from '../components/AdminDashboard/AdminOverview';
@@ -18,10 +18,10 @@ const ComprehensiveAdminDashboard = () => {
   const [activeSection, setActiveSection] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState(5);
+  const [notifications, _setNotifications] = useState(5);
 
   // Mock data - will be replaced with actual API calls
-  const [dashboardData, setDashboardData] = useState({
+  const [dashboardData, _setDashboardData] = useState({
     stats: {
       appointments_today: 12,
       appointments_this_week: 47,
@@ -114,9 +114,9 @@ const ComprehensiveAdminDashboard = () => {
         return (
           <PatientsManagement
             patients={dashboardData.patients}
-            onAddPatient={() => toast.info('Add patient feature coming soon')}
-            onEditPatient={(id) => toast.info('Edit patient feature coming soon')}
-            onViewDetails={(id) => toast.info('View details feature coming soon')}
+            onAddPatient={() => toast('Add patient feature coming soon', { icon: '👤' })}
+            onEditPatient={(_id) => toast('Edit patient feature coming soon', { icon: '✏️' })}
+            onViewDetails={(_id) => toast('View details feature coming soon', { icon: '👁️' })}
           />
         );
       case 'loyalty':
@@ -124,11 +124,11 @@ const ComprehensiveAdminDashboard = () => {
           <LoyaltyManagement
             rewards={dashboardData.rewards}
             redemptions={dashboardData.redemptions}
-            onAddReward={() => toast.info('Add reward feature coming soon')}
-            onEditReward={(id) => toast.info('Edit reward feature coming soon')}
-            onDeleteReward={(id) => toast.info('Delete reward feature coming soon')}
-            onApproveRedemption={(id) => toast.success('Redemption approved')}
-            onRejectRedemption={(id) => toast.error('Redemption rejected')}
+            onAddReward={() => toast('Add reward feature coming soon', { icon: '🎁' })}
+            onEditReward={(_id) => toast('Edit reward feature coming soon', { icon: '✏️' })}
+            onDeleteReward={(_id) => toast('Delete reward feature coming soon', { icon: '🗑️' })}
+            onApproveRedemption={(_id) => toast.success('Redemption approved')}
+            onRejectRedemption={(_id) => toast.error('Redemption rejected')}
           />
         );
       case 'appointments':
