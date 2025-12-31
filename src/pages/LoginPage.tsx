@@ -45,7 +45,7 @@ const LoginPage = () => {
         }
       } else {
         // Sign up
-        const { supabase } = await import('@/lib/supabase');
+        const { supabase } = await import('../lib/supabase');
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -87,7 +87,7 @@ const LoginPage = () => {
 
   const handleGoogleAuth = async () => {
     try {
-      const { supabase } = await import('@/lib/supabase');
+      const { supabase } = await import('../lib/supabase');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -103,7 +103,7 @@ const LoginPage = () => {
 
   const handleAppleAuth = async () => {
     try {
-      const { supabase } = await import('@/lib/supabase');
+      const { supabase } = await import('../lib/supabase');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {

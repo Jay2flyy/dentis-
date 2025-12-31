@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { MapPin, Phone, Mail, Clock, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 import { CTASection } from '../components/CTASection';
 
 const ContactPage = () => {

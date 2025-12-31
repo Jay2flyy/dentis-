@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { FileText, Image, Pill, AlertCircle, Download, Eye, Printer, Activity } from 'lucide-react';
 import { DentalHistory, MedicalDocument, TreatmentPlan, Prescription, PatientMedicalInfo } from '../../types';
 import DocumentUpload from './DocumentUpload';
-import { downloadDocument, mockDownloadDocument } from '@/lib/fileUtils';
-import { useAuth } from '@/contexts/AuthContext';
+import { downloadDocument, mockDownloadDocument } from '../../lib/fileUtils';
+import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 interface MedicalRecordsSectionProps {

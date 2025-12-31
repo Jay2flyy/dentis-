@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Calendar, FileText, User, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 import { Appointment } from '../types';
 
 const PatientPortal = () => {

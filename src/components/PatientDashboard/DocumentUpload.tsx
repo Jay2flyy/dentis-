@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, X, FileText, Image as ImageIcon, File } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { uploadDocument, mockUploadDocument } from '@/lib/fileUtils';
+import { useAuth } from '../../contexts/AuthContext';
+import { uploadDocument, mockUploadDocument } from '../../lib/fileUtils';
 import toast from 'react-hot-toast';
 
 interface DocumentUploadProps {
