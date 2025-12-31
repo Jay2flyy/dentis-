@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Makhanda Smiles - Voice Appointment Booking</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🦷 Makhanda Smiles</h1>
+                <p class="nav-subtitle">AI Voice Booking</p>
+            </div>
+            <div class="nav-links">
+                <a href="#home" onclick="scrollToSection('home')">Home</a>
+                <a href="#features" onclick="scrollToSection('features')">Features</a>
+                <a href="#appointments" onclick="scrollToSection('appointments')">Appointments</a>
+                <a href="#contact" onclick="scrollToSection('contact')">Contact</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>Your Smile, Our Voice</h1>
+                <p>Book your dental appointment using our AI voice assistant</p>
+                <button id="startBookingBtn" class="cta-button pulse">
+                    🎤 Start Voice Booking
+                </button>
+                <p class="subtitle-small">Powered by ElevenLabs AI</p>
+            </div>
+            <div class="hero-visual">
+                <div class="pulse-circle"></div>
+                <div class="waveform">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Why Choose Voice Booking?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Instant Booking</h3>
+                    <p>Just speak naturally to schedule your appointment in seconds</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI Assistant</h3>
+                    <p>Intelligent voice agent available 24/7 to help you</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">✉️</div>
+                    <h3>Instant Confirmation</h3>
+                    <p>Get email confirmation immediately after booking</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Appointments Section -->
+    <section id="appointments" class="appointments">
+        <div class="container">
+            <h2>Your Upcoming Appointments</h2>
+            <div id="appointmentsList" class="appointments-grid">
+                <div class="loading">Loading appointments...</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="contact">
+        <div class="container">
+            <h2>Get in Touch</h2>
+            <div class="contact-info">
+                <div class="contact-item">
+                    <span class="icon">📞</span>
+                    <p>+27 (0)123 456 7890</p>
+                </div>
+                <div class="contact-item">
+                    <span class="icon">📍</span>
+                    <p>Makhanda, South Africa</p>
+                </div>
+                <div class="contact-item">
+                    <span class="icon">⏰</span>
+                    <p>Mon-Fri: 8AM-6PM | Sat: 9AM-1PM</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ElevenLabs Widget -->
+    <script src="https://elevenlabs.io/convai-widget/index.js" async type="text/javascript" charset="utf-8"></script>
+    <div id="elevenlabs-widget" style="display: none;">
+        <elevenlabs-convai agent-id="agent_0401kdsvkjk3e26bbvmgsxs1b47p" branch-id="agtbrch_7801kdsvkmbae6j8d4kxk2t3g5pq"></elevenlabs-convai>
+    </div>
+
+    <!-- Main Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>

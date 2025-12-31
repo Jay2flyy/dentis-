@@ -1,0 +1,203 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🎤 VOICE APPOINTMENT BOOKING SYSTEM - QUICK START                           ║
+║  Production-Ready AI Voice Appointment System                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 5-MINUTE SETUP GUIDE
+
+1. INSTALL DEPENDENCIES
+   ─────────────────────
+   python -m venv venv
+   source venv/bin/activate  (macOS/Linux) or venv\Scripts\activate (Windows)
+   pip install -r requirements.txt
+
+2. CONFIGURE ENVIRONMENT
+   ─────────────────────
+   • Copy .env.example → .env
+   • Fill in your credentials:
+     - SUPABASE_URL and SUPABASE_ANON_KEY
+     - ELEVENLABS_AGENT_ID and ELEVENLABS_BRANCH_ID
+     - EMAILJS_SERVICE_ID and EMAILJS_PUBLIC_KEY
+     - GOOGLE_CALENDAR_ID
+
+3. SET UP DATABASE
+   ───────────────
+   • Open Supabase Dashboard
+   • Go to SQL Editor
+   • Copy & paste setup-database.sql
+   • Click Run
+
+4. START SERVER
+   ────────────
+   python backend/main.py
+   
+   Expected: "Uvicorn running on http://0.0.0.0:8000"
+
+5. OPEN BROWSER
+   ────────────
+   Visit: http://localhost:8000
+   Click: "Start Voice Booking"
+   Speak: "I'd like to book an appointment"
+
+✅ SUCCESS! Your system is running!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 DEPLOYMENT (for testing with ElevenLabs)
+
+   ngrok http 8000
+   
+   Copy ngrok URL: https://xxxx-xxxx-xxxx.ngrok.io
+   
+   Configure in ElevenLabs Dashboard:
+   - Tools → Check Availability → https://xxxx-xxxx-xxxx.ngrok.io/tools/check-availability
+   - Tools → Book Appointment → https://xxxx-xxxx-xxxx.ngrok.io/tools/book-appointment
+   - Tools → Cancel Appointment → https://xxxx-xxxx-xxxx.ngrok.io/tools/cancel-appointment
+   - Tools → Reschedule → https://xxxx-xxxx-xxxx.ngrok.io/tools/reschedule-appointment
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📂 PROJECT STRUCTURE
+
+backend/
+├── main.py                 ← Start here (python backend/main.py)
+├── config/
+│   ├── settings.py         ← Environment variables
+│   └── supabase_client.py  ← Database connection
+├── models/
+│   └── schemas.py          ← Data validation
+├── services/
+│   ├── database_service.py ← Supabase CRUD
+│   ├── email_service.py    ← EmailJS integration
+│   └── calendar_service.py ← Google Calendar (mock)
+├── routers/
+│   ├── tools.py            ← 4 ElevenLabs tools
+│   └── webhooks.py         ← Webhook handlers
+└── utils/
+    └── logger.py           ← Structured logging
+
+frontend/
+├── index.html              ← Landing page
+├── styles.css              ← Glassmorphism design
+└── app.js                  ← Appointment management
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 API ENDPOINTS (for testing with curl)
+
+Check Availability:
+  curl -X POST http://localhost:8000/tools/check-availability \
+    -H "Content-Type: application/json" \
+    -d '{"date": "2025-01-15", "time": "14:00"}'
+
+Book Appointment:
+  curl -X POST http://localhost:8000/tools/book-appointment \
+    -H "Content-Type: application/json" \
+    -d '{
+      "customer_name": "John Doe",
+      "customer_email": "john@example.com",
+      "customer_phone": "+27791234567",
+      "date": "2025-01-15",
+      "time": "14:00",
+      "service_type": "Teeth Cleaning"
+    }'
+
+Health Check:
+  curl http://localhost:8000/health
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 TEST VOICE BOOKING FLOW
+
+1. Open http://localhost:8000
+2. Click "🎤 Start Voice Booking"
+3. Wait for "Listening..." indicator
+4. Speak naturally:
+   
+   Examples:
+   • "Check availability for Monday at 10 AM"
+   • "I'd like to book teeth cleaning for next Tuesday at 2 PM"
+   • "Cancel my appointment"
+   • "Reschedule my appointment to Wednesday"
+
+5. Voice agent will:
+   ✓ Check availability
+   ✓ Collect your details
+   ✓ Confirm appointment
+   ✓ Send email confirmation
+   ✓ Save to database
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️ CONFIGURATION
+
+Environment Variables (.env):
+  
+  Required:
+  • SUPABASE_URL=https://your-project.supabase.co
+  • SUPABASE_ANON_KEY=eyJhb...
+  • ELEVENLABS_AGENT_ID=agent_xxxx
+  • ELEVENLABS_BRANCH_ID=agtbrch_xxxx
+  • EMAILJS_SERVICE_ID=service_xxxx
+  • EMAILJS_PUBLIC_KEY=rVw6...
+  • GOOGLE_CALENDAR_ID=your-calendar-id
+
+  Optional:
+  • APP_ENV=development (or production)
+  • APP_PORT=8000
+  • BUSINESS_START_HOUR=8
+  • BUSINESS_END_HOUR=18
+  • BUSINESS_DAYS=Monday,Tuesday,Wednesday,Thursday,Friday
+  • APPOINTMENT_DURATION_MINUTES=30
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🐛 TROUBLESHOOTING
+
+Problem: Backend won't start
+Solution: 
+  • Check Python version (need 3.9+)
+  • Activate virtual environment
+  • Run: pip install -r requirements.txt
+
+Problem: Can't connect to Supabase
+Solution:
+  • Verify SUPABASE_URL and SUPABASE_ANON_KEY
+  • Check table exists: run setup-database.sql
+  • Test connection: SELECT * FROM appointments LIMIT 1;
+
+Problem: Emails not sending
+Solution:
+  • Verify EMAILJS_SERVICE_ID and EMAILJS_PUBLIC_KEY
+  • Check template exists with correct ID
+  • Test: curl -X POST http://localhost:8000/tools/book-appointment
+
+Problem: ElevenLabs not responding
+Solution:
+  • Check ngrok URL is updated in ElevenLabs dashboard
+  • Verify agent ID and branch ID
+  • Test endpoints directly: curl http://localhost:8000/tools/check-availability
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION
+
+For more details:
+• README.md        - Complete guide
+• DEPLOYMENT.md    - Production deployment
+• setup-database.sql - Database schema
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 YOU'RE READY!
+
+Next steps:
+  1. ✅ Run the server
+  2. ✅ Test voice booking
+  3. ✅ Deploy with ngrok
+  4. ✅ Configure ElevenLabs tools
+  5. ✅ Test end-to-end
+
+Questions? Check README.md or DEPLOYMENT.md for detailed guides.
+
+Happy booking! 🦷🎤
