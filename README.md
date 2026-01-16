@@ -143,6 +143,13 @@ We provide three voice assistant options:
 - Handles dental practice appointments and inquiries
 - Requires Retell AI account and API keys
 
+### SIM AI + Puter.js Integration ("Thandi")
+- Custom voice assistant using SIM AI for processing and Puter.js for speech synthesis
+- Features natural conversation flow with professional dental practice assistant
+- Integrated with Supabase Edge Function for secure API calls
+- Includes speech-to-text and text-to-speech capabilities
+- No API key required for text-to-speech functionality
+
 ### Browser-Based Voice Assistant ("Sarah")
 - Uses native browser speech recognition and synthesis
 - Fully functional AI receptionist that collects booking information

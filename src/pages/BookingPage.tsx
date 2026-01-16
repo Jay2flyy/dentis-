@@ -1,14 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, User, Mail, Phone, FileText, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { Service } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 const BookingPage = () => {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
   const [formData, setFormData] = useState({
     service: '',
+    serviceDuration: 30,
     date: '',
     time: '',
     fullName: '',
@@ -17,36 +22,115 @@ const BookingPage = () => {
     notes: '',
   });
 
-  const services: Service[] = [
-    { id: '1', name: 'General Checkup', description: 'Comprehensive oral examination', duration: 30, price: 80, category: 'General' },
-    { id: '2', name: 'Teeth Cleaning', description: 'Professional cleaning and polishing', duration: 45, price: 120, category: 'Preventive' },
-    { id: '3', name: 'Teeth Whitening', description: 'Professional whitening treatment', duration: 60, price: 400, category: 'Cosmetic' },
-    { id: '4', name: 'Dental Filling', description: 'Cavity filling procedure', duration: 60, price: 200, category: 'Restorative' },
-    { id: '5', name: 'Root Canal', description: 'Root canal therapy', duration: 90, price: 800, category: 'Endodontic' },
-    { id: '6', name: 'Emergency Care', description: '24/7 emergency dental service', duration: 30, price: 150, category: 'Emergency' },
-  ];
+  // Fetch services from Supabase
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('services')
+          .select('*')
+          .eq('active', true)
+          .order('name');
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          setServices(data.map(s => ({
+            id: s.id,
+            name: s.name,
+            description: s.description || '',
+            duration: s.duration,
+            price: Number(s.price),
+            category: s.category,
+            image_url: s.image_url
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching services:', error);
+      } finally {
+        setLoadingServices(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
+
+  // Autofill form if user is logged in
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+
+      try {
+        // Try to find profile first
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profile) {
+          setFormData(prev => ({
+            ...prev,
+            fullName: profile.full_name || '',
+            email: user.email || '',
+            phone: profile.phone || ''
+          }));
+        } else {
+          // Fallback to auth email
+          setFormData(prev => ({
+            ...prev,
+            email: user.email || ''
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
   const timeSlots = [
-    '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
-    '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM'
+    '08:00', '09:00', '10:00', '11:00',
+    '13:00', '14:00', '15:00', '16:00', '17:00'
   ];
+
+  // Format time for display
+  const formatTimeDisplay = (time: string) => {
+    const [hours] = time.split(':');
+    const hour = parseInt(hours);
+    if (hour < 12) return `${hour}:00 AM`;
+    if (hour === 12) return `12:00 PM`;
+    return `${hour - 12}:00 PM`;
+  };
 
   const handleSubmit = async () => {
     try {
-      const { error } = await supabase.from('appointments').insert([
-        {
-          patient_name: formData.fullName,
-          patient_email: formData.email,
-          patient_phone: formData.phone,
-          appointment_date: formData.date,
-          appointment_time: formData.time,
-          service_type: formData.service,
-          notes: formData.notes,
-          status: 'pending',
-        },
-      ]);
+      const appointmentData = {
+        patient_name: formData.fullName,
+        patient_email: formData.email,
+        patient_phone: formData.phone,
+        appointment_date: formData.date,
+        appointment_time: formData.time,
+        service_type: formData.service,
+        status: 'pending',
+        notes: formData.notes
+      };
+
+      const { data: appointment, error } = await supabase.from('appointments').insert([appointmentData]).select().single();
 
       if (error) throw error;
+
+      // Create notification for the patient
+      if (appointment) {
+        await supabase.from('notifications').insert([{
+          patient_id: appointment.patient_id,
+          notification_type: 'appointment_confirmation',
+          title: 'Appointment Pending Confirmation',
+          message: `Your appointment for ${formData.service} on ${formData.date} at ${formData.time} has been received and is pending confirmation.`,
+          is_read: false
+        }]);
+      }
 
       toast.success('Appointment booked successfully!');
       setStep(4);
@@ -66,30 +150,38 @@ const BookingPage = () => {
             exit={{ opacity: 0, x: -20 }}
           >
             <h2 className="text-2xl font-bold mb-6">Select a Service</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              {services.map((service) => (
-                <div
-                  key={service.id}
-                  onClick={() => {
-                    setFormData({ ...formData, service: service.name });
-                    setStep(2);
-                  }}
-                  className={`card cursor-pointer hover:border-dental-primary border-2 transition-all ${
-                    formData.service === service.name ? 'border-dental-primary bg-dental-light' : 'border-transparent'
-                  }`}
-                >
-                  <h3 className="text-lg font-semibold mb-2">{service.name}</h3>
-                  <p className="text-gray-600 text-sm mb-3">{service.description}</p>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500">
-                      <Clock size={16} className="inline mr-1" />
-                      {service.duration} min
-                    </span>
-                    <span className="text-dental-primary font-semibold">R{service.price}</span>
+            {loadingServices ? (
+              <div className="text-center py-12 text-gray-500">Loading services...</div>
+            ) : services.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <p>No services available at the moment.</p>
+                <p className="text-sm mt-2">Please contact us directly to book an appointment.</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {services.map((service) => (
+                  <div
+                    key={service.id}
+                    onClick={() => {
+                      setFormData({ ...formData, service: service.name, serviceDuration: service.duration });
+                      setStep(2);
+                    }}
+                    className={`card cursor-pointer hover:border-dental-primary border-2 transition-all ${formData.service === service.name ? 'border-dental-primary bg-dental-light' : 'border-transparent'
+                      }`}
+                  >
+                    <h3 className="text-lg font-semibold mb-2">{service.name}</h3>
+                    <p className="text-gray-600 text-sm mb-3">{service.description}</p>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500">
+                        <Clock size={16} className="inline mr-1" />
+                        {service.duration} min
+                      </span>
+                      <span className="text-dental-primary font-semibold">R{service.price}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </motion.div>
         );
 
@@ -120,13 +212,12 @@ const BookingPage = () => {
                       <button
                         key={time}
                         onClick={() => setFormData({ ...formData, time })}
-                        className={`py-3 px-4 rounded-lg border-2 transition-all ${
-                          formData.time === time
-                            ? 'border-dental-primary bg-dental-primary text-white'
-                            : 'border-gray-300 hover:border-dental-primary'
-                        }`}
+                        className={`py-3 px-4 rounded-lg border-2 transition-all ${formData.time === time
+                          ? 'border-dental-primary bg-dental-primary text-white'
+                          : 'border-gray-300 hover:border-dental-primary'
+                          }`}
                       >
-                        {time}
+                        {formatTimeDisplay(time)}
                       </button>
                     ))}
                   </div>
@@ -231,7 +322,7 @@ const BookingPage = () => {
               <div className="space-y-2 text-sm">
                 <p><strong>Service:</strong> {formData.service}</p>
                 <p><strong>Date:</strong> {new Date(formData.date).toLocaleDateString()}</p>
-                <p><strong>Time:</strong> {formData.time}</p>
+                <p><strong>Time:</strong> {formatTimeDisplay(formData.time)}</p>
                 <p><strong>Name:</strong> {formData.fullName}</p>
               </div>
             </div>
@@ -255,9 +346,8 @@ const BookingPage = () => {
               {[1, 2, 3].map((s) => (
                 <div key={s} className="flex items-center flex-1">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                      s <= step ? 'bg-dental-primary text-white' : 'bg-gray-300 text-gray-600'
-                    }`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${s <= step ? 'bg-dental-primary text-white' : 'bg-gray-300 text-gray-600'
+                      }`}
                   >
                     {s}
                   </div>

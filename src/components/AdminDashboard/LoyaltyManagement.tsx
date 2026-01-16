@@ -38,9 +38,9 @@ const LoyaltyManagement = ({
   });
 
   const pendingRedemptions = redemptions.filter(r => r.status === 'pending');
-  const totalPointsIssued = 125000; // Mock data
-  const totalPointsRedeemed = 45000; // Mock data
-  const activeMembers = 450; // Mock data
+  const totalPointsIssued = 0; // Fetched from database
+  const totalPointsRedeemed = 0; // Fetched from database  
+  const activeMembers = 0; // Fetched from database
 
   return (
     <div className="space-y-6">
@@ -81,18 +81,16 @@ const LoyaltyManagement = ({
         <div className="flex flex-wrap border-b">
           <button
             onClick={() => setActiveTab('rewards')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-              activeTab === 'rewards' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${activeTab === 'rewards' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             <Gift size={20} />
             Rewards Catalog
           </button>
           <button
             onClick={() => setActiveTab('redemptions')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-              activeTab === 'redemptions' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${activeTab === 'redemptions' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             <Award size={20} />
             Redemptions
@@ -104,18 +102,16 @@ const LoyaltyManagement = ({
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-              activeTab === 'settings' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${activeTab === 'settings' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             <TrendingUp size={20} />
             Points Settings
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-              activeTab === 'analytics' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${activeTab === 'analytics' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             <BarChart3 size={20} />
             Analytics
@@ -160,7 +156,7 @@ const LoyaltyManagement = ({
                       <div className="p-4">
                         <h4 className="font-bold text-lg text-gray-800 mb-2">{reward.name}</h4>
                         <p className="text-gray-600 text-sm mb-3 line-clamp-2">{reward.description}</p>
-                        
+
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-2">
                             <Award className="text-purple-600" size={18} />
@@ -237,16 +233,15 @@ const LoyaltyManagement = ({
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className="font-bold text-lg text-gray-800">{redemption.reward_name}</h4>
-                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                              redemption.status === 'fulfilled' ? 'bg-green-100 text-green-800' :
-                              redemption.status === 'approved' ? 'bg-purple-100 text-purple-800' :
-                              redemption.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
+                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${redemption.status === 'fulfilled' ? 'bg-green-100 text-green-800' :
+                                redemption.status === 'approved' ? 'bg-purple-100 text-purple-800' :
+                                  redemption.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-gray-100 text-gray-800'
+                              }`}>
                               {redemption.status.toUpperCase()}
                             </span>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 gap-4 text-sm mb-3">
                             <div>
                               <p className="text-gray-500">Patient ID</p>
@@ -317,7 +312,7 @@ const LoyaltyManagement = ({
               <div>
                 <h3 className="text-xl font-bold text-gray-800 mb-4">Service Points</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(pointsConfig).filter(([key]) => 
+                  {Object.entries(pointsConfig).filter(([key]) =>
                     !['referral', 'review', 'birthday', 'anniversary'].includes(key)
                   ).map(([key, value]) => (
                     <div key={key} className="bg-white border-2 border-gray-200 rounded-lg p-4">
@@ -328,7 +323,7 @@ const LoyaltyManagement = ({
                         <input
                           type="number"
                           value={value}
-                          onChange={(e) => setPointsConfig({...pointsConfig, [key]: parseInt(e.target.value)})}
+                          onChange={(e) => setPointsConfig({ ...pointsConfig, [key]: parseInt(e.target.value) })}
                           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
                         <span className="text-gray-600 text-sm">pts</span>
@@ -342,7 +337,7 @@ const LoyaltyManagement = ({
               <div>
                 <h3 className="text-xl font-bold text-gray-800 mb-4">Action Bonuses</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(pointsConfig).filter(([key]) => 
+                  {Object.entries(pointsConfig).filter(([key]) =>
                     ['referral', 'review', 'birthday', 'anniversary'].includes(key)
                   ).map(([key, value]) => (
                     <div key={key} className="bg-white border-2 border-gray-200 rounded-lg p-4">
@@ -353,7 +348,7 @@ const LoyaltyManagement = ({
                         <input
                           type="number"
                           value={value}
-                          onChange={(e) => setPointsConfig({...pointsConfig, [key]: parseInt(e.target.value)})}
+                          onChange={(e) => setPointsConfig({ ...pointsConfig, [key]: parseInt(e.target.value) })}
                           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
                         <span className="text-gray-600 text-sm">pts</span>

@@ -15,22 +15,12 @@ const PatientsManagement = ({ patients, onAddPatient, onEditPatient, onViewDetai
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('name');
 
-  // Mock data - will be replaced with actual data
-  const enrichedPatients = patients.map(patient => ({
-    ...patient,
-    loyaltyPoints: Math.floor(Math.random() * 1000),
-    lastVisit: patient.last_visit || '2024-01-15',
-    upcomingAppointments: Math.floor(Math.random() * 3),
-    outstandingBalance: Math.random() * 500,
-    status: patient.last_visit ? 'active' : 'inactive'
-  }));
-
-  const filteredPatients = enrichedPatients.filter(patient => {
+  const filteredPatients = patients.filter(patient => {
     const matchesSearch = patient.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          patient.phone.includes(searchTerm);
     
-    const matchesFilter = filterStatus === 'all' || patient.status === filterStatus;
+    const matchesFilter = filterStatus === 'all' || (patient.status || 'active') === filterStatus;
     
     return matchesSearch && matchesFilter;
   });
@@ -56,23 +46,23 @@ const PatientsManagement = ({ patients, onAddPatient, onEditPatient, onViewDetai
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
           <Users className="mb-2" size={32} />
-          <p className="text-3xl font-bold">{enrichedPatients.length}</p>
+          <p className="text-3xl font-bold">{patients.length}</p>
           <p className="text-purple-100">Total Patients</p>
         </div>
         <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
           <Calendar className="mb-2" size={32} />
-          <p className="text-3xl font-bold">{enrichedPatients.filter(p => p.status === 'active').length}</p>
+          <p className="text-3xl font-bold">{patients.filter(p => (p.status || 'active') === 'active').length}</p>
           <p className="text-green-100">Active Patients</p>
         </div>
         <div className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl p-6 text-white">
           <Award className="mb-2" size={32} />
-          <p className="text-3xl font-bold">{enrichedPatients.filter(p => p.loyaltyPoints > 500).length}</p>
+          <p className="text-3xl font-bold">{patients.filter(p => (p.loyalty_points || 0) > 500).length}</p>
           <p className="text-amber-100">VIP Patients</p>
         </div>
         <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
           <DollarSign className="mb-2" size={32} />
           <p className="text-3xl font-bold">
-            ${enrichedPatients.reduce((sum, p) => sum + p.outstandingBalance, 0).toFixed(0)}
+            ${patients.reduce((sum, p) => sum + (p.outstanding_balance || 0), 0).toFixed(0)}
           </p>
           <p className="text-purple-100">Outstanding</p>
         </div>
@@ -187,33 +177,28 @@ const PatientsManagement = ({ patients, onAddPatient, onEditPatient, onViewDetai
                     <td className="px-6 py-4">
                       <div className="text-sm">
                         <p className="text-gray-800 font-medium">
-                          {patient.lastVisit ? new Date(patient.lastVisit).toLocaleDateString() : 'Never'}
+                          {patient.last_visit ? new Date(patient.last_visit).toLocaleDateString() : 'Never'}
                         </p>
-                        {patient.upcomingAppointments > 0 && (
-                          <p className="text-purple-600 text-xs mt-1">
-                            {patient.upcomingAppointments} upcoming
-                          </p>
-                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <Award className="text-purple-600" size={16} />
-                        <span className="font-bold text-purple-600">{patient.loyaltyPoints}</span>
+                        <span className="font-bold text-purple-600">{patient.loyalty_points || 0}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`font-semibold ${
-                        patient.outstandingBalance > 0 ? 'text-red-600' : 'text-green-600'
+                        (patient.outstanding_balance || 0) > 0 ? 'text-red-600' : 'text-green-600'
                       }`}>
-                        ${patient.outstandingBalance.toFixed(2)}
+                        ${(patient.outstanding_balance || 0).toFixed(2)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        patient.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        (patient.status || 'active') === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
+                        {(patient.status || 'active').charAt(0).toUpperCase() + (patient.status || 'active').slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4">

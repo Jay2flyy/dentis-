@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, X, FileText, Image as ImageIcon, File } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { uploadDocument, mockUploadDocument } from '../../lib/fileUtils';
+import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 
 interface DocumentUploadProps {
@@ -32,31 +32,54 @@ const DocumentUpload = ({ onUploadSuccess, patientId }: DocumentUploadProps) => 
 
     setUploading(true);
     try {
-      let result;
-      
-      if (demoMode) {
-        // Demo mode upload
-        result = await mockUploadDocument(selectedFile, documentType);
-        toast.success('Document uploaded (Demo Mode)');
-      } else {
-        // Real upload
-        result = await uploadDocument(selectedFile, patientId, documentType);
-        if (!result) {
-          throw new Error('Upload failed');
-        }
-        toast.success('Document uploaded successfully');
+      if (!patientId || patientId === 'patient-id') {
+        throw new Error('Invalid patient ID. Please refresh and try again.');
       }
 
-      // In real app, save to database here
-      // await supabase.from('medical_documents').insert({...})
+      if (demoMode) {
+        toast.success('Document uploaded (Demo Mode)');
+      } else {
+        // 1. Upload to Supabase Storage
+        const fileExt = selectedFile.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+        const filePath = `${patientId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) throw uploadError;
+
+        // 2. Get Public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
+
+        // 3. Insert metadata into database
+        const { error: dbError } = await supabase
+          .from('medical_documents')
+          .insert([{
+            patient_id: patientId,
+            file_name: selectedFile.name,
+            file_url: publicUrl,
+            file_size: selectedFile.size,
+            document_type: documentType,
+            description: description,
+            uploaded_by: 'Patient'
+          }]);
+
+        if (dbError) throw dbError;
+
+        toast.success('Document uploaded successfully');
+      }
 
       setIsOpen(false);
       setSelectedFile(null);
       setDescription('');
       onUploadSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload document');
+      toast.error(error.message || 'Failed to upload document');
     } finally {
       setUploading(false);
     }

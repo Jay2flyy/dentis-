@@ -25,6 +25,9 @@ export interface Patient {
   insurance_info?: string;
   created_at: string;
   last_visit?: string;
+  loyalty_points?: number;
+  status?: 'active' | 'inactive';
+  outstanding_balance?: number;
 }
 
 export interface Service {

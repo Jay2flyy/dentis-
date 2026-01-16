@@ -58,21 +58,34 @@ const AdminDashboard = () => {
         (a: any) => a.status === 'pending'
       ).length;
 
-      // Fetch patients count
+      // Fetch patients count (from profiles with role 'client')
       const { count: patientsCount } = await supabase
-        .from('patients')
-        .select('*', { count: 'exact', head: true });
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'client');
 
       const { count: newPatientsCount } = await supabase
-        .from('patients')
+        .from('profiles')
         .select('*', { count: 'exact', head: true })
+        .eq('role', 'client')
         .gte('created_at', `${thisMonth}-01`);
+
+      // Calculate revenue (Mock if payments table missing, or try fetch)
+      let revenue = 0;
+      const { data: payments } = await supabase
+        .from('payments')
+        .select('amount')
+        .gte('created_at', `${thisMonth}-01`);
+      
+      if (payments) {
+        revenue = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      }
 
       setStats({
         total_patients: patientsCount || 0,
         appointments_today: appointmentsToday,
         pending_appointments: pendingAppointments,
-        revenue_this_month: 12500, // Mock data - calculate from completed appointments
+        revenue_this_month: revenue,
         new_patients_this_month: newPatientsCount || 0,
       });
 

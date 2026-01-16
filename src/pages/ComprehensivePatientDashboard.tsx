@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Home, Calendar, Gift, FileText, DollarSign, MessageSquare, 
-  Users, Settings, LogOut, Menu, X, Bell, User
+import {
+  Home, Calendar, Gift, FileText, DollarSign, MessageSquare,
+  Users, Settings, LogOut, Menu, X, Bell, User, CreditCard
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import DashboardOverview from '../components/PatientDashboard/DashboardOverview';
 import AppointmentsSection from '../components/PatientDashboard/AppointmentsSection';
 import LoyaltySection from '../components/PatientDashboard/LoyaltySection';
 import MedicalRecordsSection from '../components/PatientDashboard/MedicalRecordsSection';
+import MedicalAidSection from '../components/PatientDashboard/MedicalAidSection';
 import BillingSection from '../components/PatientDashboard/BillingSection';
+import ProfileSection from '../components/PatientDashboard/ProfileSection';
+import NotificationPopover from '../components/PatientDashboard/NotificationPopover';
 import toast from 'react-hot-toast';
 
 const ComprehensivePatientDashboard = () => {
@@ -19,30 +23,24 @@ const ComprehensivePatientDashboard = () => {
   const [activeSection, setActiveSection] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [notifications, _setNotifications] = useState(3);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [patientId, setPatientId] = useState<string | null>(null);
 
   // Mock data - will be replaced with actual API calls
-  const [dashboardData, _setDashboardData] = useState({
+  const [dashboardData, setDashboardData] = useState({
     stats: {
-      upcoming_appointments: 2,
-      loyalty_points: 450,
-      points_to_next_reward: 50,
-      outstanding_balance: 250.00,
-      unread_messages: 3
+      upcoming_appointments: 0,
+      loyalty_points: 0,
+      points_to_next_reward: 0,
+      outstanding_balance: 0,
+      unread_messages: 0
     },
-    appointments: [],
-    loyaltyPoints: {
-      id: '1',
-      patient_id: '1',
-      points_balance: 450,
-      lifetime_points: 1250,
-      tier_level: 'Silver' as const,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    },
-    rewards: [],
-    transactions: [],
-    redemptions: [],
+    appointments: [] as any[],
+    loyaltyPoints: null as any,
+    rewards: [] as any[],
+    transactions: [] as any[],
+    redemptions: [] as any[],
     referrals: [],
     dentalHistory: [],
     documents: [],
@@ -58,13 +56,15 @@ const ComprehensivePatientDashboard = () => {
   });
 
   useEffect(() => {
+    if (isLoggingOut) return;
+
     if (!authLoading && !user) {
       toast.error('Please login to access the dashboard');
       navigate('/login');
-    } else if (user) {
+    } else if (user && !isLoggingOut) {
       loadDashboardData();
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isLoggingOut]);
 
   // Show loading spinner while checking auth
   if (authLoading) {
@@ -80,21 +80,161 @@ const ComprehensivePatientDashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      // TODO: Load actual data from Supabase
-      toast.success('Dashboard loaded successfully');
+      if (!user) return;
+
+      // Fetch Profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error fetching profile:', profileError);
+      }
+
+      // Fetch Appointments
+      const { data: appointments, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('patient_email', user.email) // Use email as link since patient_id might not map to auth.uid directly yet
+        .order('appointment_date', { ascending: true });
+
+      if (appointmentsError) {
+        console.error('Error fetching appointments:', appointmentsError);
+      }
+
+      // Fetch patient record first to get the correct ID for loyalty/transactions
+      const { data: patientRecord } = await supabase.from('patients').select('id').eq('email', user.email).single();
+
+      let realLoyaltyPoints: any = null;
+      let realTransactions: any[] = [];
+      let realRedemptions: any[] = [];
+
+      if (patientRecord) {
+        setPatientId(patientRecord.id);
+        const { data: lp } = await supabase.from('loyalty_points').select('*').eq('patient_id', patientRecord.id).single();
+        realLoyaltyPoints = lp;
+
+        const { data: trans } = await supabase.from('points_transactions').select('*').eq('patient_id', patientRecord.id).order('created_at', { ascending: false });
+        realTransactions = trans || [];
+
+        const { data: reds } = await supabase.from('reward_redemptions').select('*, reward:rewards_catalog(name)').eq('patient_id', patientRecord.id).order('created_at', { ascending: false });
+        realRedemptions = reds || [];
+      }
+
+      // Fetch Notifications
+      const { data: notifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .or(`patient_id.eq.${patientRecord?.id || '00000000-0000-0000-0000-000000000000'},patient_id.is.null`)
+        .order('created_at', { ascending: false });
+
+      setNotifications(notifs || []);
+
+      // Fetch Rewards Catalog
+      const { data: rewards } = await supabase.from('rewards_catalog').select('*').eq('active', true);
+
+      // Process Data
+      const now = new Date();
+      // Filter appointments manually if date string
+      const upcomingAppointments = (appointments || []).filter(a => new Date(a.appointment_date + 'T' + a.appointment_time) >= now);
+
+      const loyaltyBalance = realLoyaltyPoints?.points_balance || 0;
+      const pointsToNextReward = Math.max(0, 500 - loyaltyBalance);
+
+      // Map Appointments to expected format
+      const mappedAppointments = (appointments || []).map(a => ({
+        id: a.id,
+        doctor_name: 'General Dentist',
+        appointment_date: a.appointment_date + ' ' + a.appointment_time, // Combine for display if needed or keep separate
+        service_type: a.service_type || 'General Checkup',
+        status: a.status,
+        location: 'SmileCare Clinic',
+        notes: a.notes
+      }));
+
+      // Calculate outstanding balance (mock logic or from payments)
+      const outstandingBalance = 0;
+
+      setDashboardData(prev => ({
+        ...prev,
+        stats: {
+          upcoming_appointments: upcomingAppointments.length,
+          loyalty_points: loyaltyBalance,
+          points_to_next_reward: pointsToNextReward,
+          outstanding_balance: outstandingBalance,
+          unread_messages: notifs?.filter((n: any) => !n.is_read).length || 0
+        },
+        appointments: mappedAppointments,
+        loyaltyPoints: realLoyaltyPoints || { points_balance: 0, tier_level: 'Bronze', lifetime_points: 0 },
+        rewards: rewards || [],
+        transactions: realTransactions,
+        redemptions: realRedemptions,
+      }));
+
+      toast.success('Dashboard updated');
     } catch (error) {
       console.error('Error loading dashboard:', error);
       toast.error('Failed to load dashboard data');
     }
   };
 
+  const handleCancelAppointment = async (appointmentId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'cancelled' })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+      toast.success('Appointment cancelled');
+      loadDashboardData();
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      toast.error('Failed to cancel appointment');
+    }
+  };
+
+  const handleRedeemReward = async (rewardId: string) => {
+    try {
+      const reward = dashboardData.rewards.find(r => r.id === rewardId);
+      if (!reward) return;
+
+      if (dashboardData.loyaltyPoints.points_balance < reward.points_required) {
+        toast.error('Insufficient loyalty points');
+        return;
+      }
+
+      const { data: redemption, error } = await supabase
+        .from('reward_redemptions')
+        .insert([{
+          patient_id: patientId,
+          reward_id: rewardId,
+          status: 'pending'
+        }]);
+
+      if (error) throw error;
+      toast.success('Redemption request submitted!');
+      loadDashboardData();
+    } catch (error) {
+      console.error('Error redeeming reward:', error);
+      toast.error('Failed to process redemption');
+    }
+  };
+
   const handleSignOut = async () => {
     try {
+      setIsLoggingOut(true);
       await signOut();
       navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
       toast.error('Failed to sign out');
+      setIsLoggingOut(false);
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -102,7 +242,8 @@ const ComprehensivePatientDashboard = () => {
     { id: 'overview', label: 'Dashboard', icon: Home },
     { id: 'appointments', label: 'Appointments', icon: Calendar },
     { id: 'loyalty', label: 'Loyalty & Rewards', icon: Gift },
-    { id: 'records', label: 'Medical Records', icon: FileText },
+    { id: 'medical', label: 'Medical Records', icon: FileText },
+    { id: 'medical-aid', label: 'Medical Aid', icon: CreditCard },
     { id: 'billing', label: 'Billing & Payments', icon: DollarSign },
     { id: 'messages', label: 'Messages', icon: MessageSquare, badge: dashboardData.stats.unread_messages },
     { id: 'family', label: 'Family Management', icon: Users },
@@ -125,8 +266,8 @@ const ComprehensivePatientDashboard = () => {
           <AppointmentsSection
             appointments={dashboardData.appointments}
             onBookNew={() => navigate('/booking')}
-            onReschedule={(_id) => toast('Reschedule feature coming soon', { icon: '📅' })}
-            onCancel={(_id) => toast('Cancel feature coming soon', { icon: '❌' })}
+            onReschedule={(_id) => toast('Please call the clinic to reschedule', { icon: '📞' })}
+            onCancel={handleCancelAppointment}
             onDownload={(_id) => toast('Download feature coming soon', { icon: '⬇️' })}
           />
         );
@@ -138,10 +279,10 @@ const ComprehensivePatientDashboard = () => {
             transactions={dashboardData.transactions}
             redemptions={dashboardData.redemptions}
             referrals={dashboardData.referrals}
-            onRedeemReward={(_id) => toast('Reward redemption coming soon', { icon: '🎁' })}
+            onRedeemReward={handleRedeemReward}
           />
         );
-      case 'records':
+      case 'medical':
         return (
           <MedicalRecordsSection
             dentalHistory={dashboardData.dentalHistory}
@@ -149,9 +290,14 @@ const ComprehensivePatientDashboard = () => {
             treatmentPlans={dashboardData.treatmentPlans}
             prescriptions={dashboardData.prescriptions}
             medicalInfo={dashboardData.medicalInfo}
-            onUploadDocument={() => toast('Upload feature coming soon', { icon: '⬆️' })}
-            onDownloadDocument={(_id) => toast('Download feature coming soon', { icon: '⬇️' })}
+            patientId={patientId || ''}
+            onUploadDocument={loadDashboardData}
+            onDownloadDocument={(id) => console.log('Download', id)}
           />
+        );
+      case 'medical-aid':
+        return (
+          <MedicalAidSection patientId={patientId || ''} />
         );
       case 'billing':
         return (
@@ -185,11 +331,7 @@ const ComprehensivePatientDashboard = () => {
         );
       case 'settings':
         return (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <Settings size={64} className="mx-auto mb-4 text-gray-400" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Settings</h2>
-            <p className="text-gray-600">Settings panel coming soon</p>
-          </div>
+          <ProfileSection />
         );
       default:
         return null;
@@ -202,9 +344,8 @@ const ComprehensivePatientDashboard = () => {
       <motion.aside
         initial={{ x: -300 }}
         animate={{ x: isSidebarOpen ? 0 : -300 }}
-        className={`hidden lg:block fixed left-0 top-0 h-full bg-white shadow-xl z-40 transition-all duration-300 ${
-          isSidebarOpen ? 'w-64' : 'w-0'
-        }`}
+        className={`hidden lg:block fixed left-0 top-0 h-full bg-white shadow-xl z-40 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0'
+          }`}
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-8">
@@ -239,11 +380,10 @@ const ComprehensivePatientDashboard = () => {
                   setActiveSection(item.id);
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                  activeSection === item.id
-                    ? 'bg-purple-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${activeSection === item.id
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+                  }`}
               >
                 <item.icon size={20} />
                 <span className="font-medium">{item.label}</span>
@@ -317,11 +457,10 @@ const ComprehensivePatientDashboard = () => {
                         setActiveSection(item.id);
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-                        activeSection === item.id
-                          ? 'bg-purple-600 text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${activeSection === item.id
+                        ? 'bg-purple-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                        }`}
                     >
                       <item.icon size={20} />
                       <span className="font-medium">{item.label}</span>
@@ -372,17 +511,43 @@ const ComprehensivePatientDashboard = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              <button className="relative p-2 hover:bg-gray-100 rounded-lg">
-                <Bell size={24} className="text-gray-600" />
-                {notifications > 0 && (
-                  <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {notifications}
-                  </span>
-                )}
-              </button>
-              <button className="p-2 hover:bg-gray-100 rounded-lg">
-                <User size={24} className="text-gray-600" />
-              </button>
+              <NotificationPopover
+                notifications={notifications}
+                onMarkAsRead={async (id) => {
+                  try {
+                    const { error } = await supabase
+                      .from('notifications')
+                      .update({ is_read: true })
+                      .eq('id', id);
+                    if (error) throw error;
+                    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+                  } catch (error) {
+                    console.error('Error marking as read:', error);
+                  }
+                }}
+                onMarkAllAsRead={async () => {
+                  try {
+                    // Get current user patient ID
+                    const { data: p } = await supabase.from('patients').select('id').eq('email', user?.email).single();
+                    if (!p) return;
+
+                    const { error } = await supabase
+                      .from('notifications')
+                      .update({ is_read: true })
+                      .eq('patient_id', p.id);
+                    if (error) throw error;
+                    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                    toast.success('All notifications marked as read');
+                  } catch (error) {
+                    console.error('Error marking all as read:', error);
+                  }
+                }}
+              />
+              <div className="flex items-center gap-2 pl-4 border-l">
+                <button className="p-2 hover:bg-gray-100 rounded-lg">
+                  <User size={24} className="text-gray-600" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

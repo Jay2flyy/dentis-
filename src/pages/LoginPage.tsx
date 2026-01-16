@@ -37,7 +37,7 @@ const LoginPage = () => {
         await signIn(email, password);
         toast.success('Login successful!');
         
-        // Navigate based on user type
+        // Navigate based on user type selection
         if (userType === 'admin') {
           navigate('/admin/comprehensive');
         } else {

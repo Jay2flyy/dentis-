@@ -13,6 +13,7 @@ interface MedicalRecordsSectionProps {
   treatmentPlans: TreatmentPlan[];
   prescriptions: Prescription[];
   medicalInfo: PatientMedicalInfo[];
+  patientId: string;
   onUploadDocument: () => void;
   onDownloadDocument: (documentId: string) => void;
 }
@@ -23,6 +24,7 @@ const MedicalRecordsSection = ({
   treatmentPlans,
   prescriptions,
   medicalInfo,
+  patientId,
   onUploadDocument,
   onDownloadDocument,
 }: MedicalRecordsSectionProps) => {
@@ -75,7 +77,7 @@ const MedicalRecordsSection = ({
               toast.success('Document uploaded successfully!');
               onUploadDocument();
             }}
-            patientId={demoMode ? 'demo-patient-123' : 'patient-id'}
+            patientId={patientId || 'demo-patient-123'}
           />
         </div>
       </div>
@@ -144,36 +146,32 @@ const MedicalRecordsSection = ({
         <div className="flex flex-wrap border-b">
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-              activeTab === 'history' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${activeTab === 'history' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             <Activity size={20} />
             Dental History
           </button>
           <button
             onClick={() => setActiveTab('documents')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-              activeTab === 'documents' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${activeTab === 'documents' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             <Image size={20} />
             Documents & X-Rays
           </button>
           <button
             onClick={() => setActiveTab('treatments')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-              activeTab === 'treatments' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${activeTab === 'treatments' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             <FileText size={20} />
             Treatment Plans
           </button>
           <button
             onClick={() => setActiveTab('prescriptions')}
-            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${
-              activeTab === 'prescriptions' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 font-semibold transition ${activeTab === 'prescriptions' ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
           >
             <Pill size={20} />
             Prescriptions
@@ -214,7 +212,7 @@ const MedicalRecordsSection = ({
                           <Download size={20} />
                         </button>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         {record.dentist_name && (
                           <div>
@@ -328,12 +326,11 @@ const MedicalRecordsSection = ({
                         <h3 className="text-xl font-bold text-gray-800">{plan.title}</h3>
                         <p className="text-gray-600 mt-1">{plan.description}</p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        plan.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${plan.status === 'completed' ? 'bg-green-100 text-green-800' :
                         plan.status === 'in_progress' ? 'bg-purple-100 text-purple-800' :
-                        plan.status === 'approved' ? 'bg-purple-100 text-purple-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
+                          plan.status === 'approved' ? 'bg-purple-100 text-purple-800' :
+                            'bg-yellow-100 text-yellow-800'
+                        }`}>
                         {plan.status.replace('_', ' ').toUpperCase()}
                       </span>
                     </div>
@@ -354,11 +351,10 @@ const MedicalRecordsSection = ({
                       {plan.priority && (
                         <div>
                           <p className="text-sm text-gray-500">Priority</p>
-                          <p className={`font-semibold ${
-                            plan.priority === 'urgent' ? 'text-red-600' :
+                          <p className={`font-semibold ${plan.priority === 'urgent' ? 'text-red-600' :
                             plan.priority === 'high' ? 'text-orange-600' :
-                            'text-gray-800'
-                          }`}>
+                              'text-gray-800'
+                            }`}>
                             {plan.priority.toUpperCase()}
                           </p>
                         </div>
@@ -371,10 +367,9 @@ const MedicalRecordsSection = ({
                         <div className="space-y-2">
                           {plan.phases.map((phase) => (
                             <div key={phase.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                                phase.status === 'completed' ? 'bg-green-500 text-white' :
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${phase.status === 'completed' ? 'bg-green-500 text-white' :
                                 'bg-gray-300 text-gray-600'
-                              }`}>
+                                }`}>
                                 {phase.phase_number}
                               </div>
                               <div className="flex-1">
@@ -409,20 +404,18 @@ const MedicalRecordsSection = ({
                     key={prescription.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className={`border-2 rounded-lg p-5 hover:shadow-lg transition ${
-                      prescription.status === 'active' ? 'border-green-300 bg-green-50' : 'border-gray-200'
-                    }`}
+                    className={`border-2 rounded-lg p-5 hover:shadow-lg transition ${prescription.status === 'active' ? 'border-green-300 bg-green-50' : 'border-gray-200'
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-xl font-bold text-gray-800">{prescription.medication_name}</h3>
                         <p className="text-gray-600">{prescription.dosage} • {prescription.frequency}</p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        prescription.status === 'active' ? 'bg-green-100 text-green-800' :
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${prescription.status === 'active' ? 'bg-green-100 text-green-800' :
                         prescription.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                          'bg-red-100 text-red-800'
+                        }`}>
                         {prescription.status.toUpperCase()}
                       </span>
                     </div>

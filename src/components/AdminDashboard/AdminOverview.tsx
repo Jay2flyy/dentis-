@@ -3,14 +3,20 @@ import {
   Calendar, Users, DollarSign, TrendingUp, Clock, 
   AlertCircle, Gift, Star, Activity 
 } from 'lucide-react';
-import { AdminDashboardStats } from '../../types';
+import { AdminDashboardStats, Appointment } from '../../types';
 
 interface AdminOverviewProps {
   stats: AdminDashboardStats;
+  appointments: Appointment[];
   onNavigate: (section: string) => void;
 }
 
-const AdminOverview = ({ stats, onNavigate }: AdminOverviewProps) => {
+const AdminOverview = ({ stats, appointments, onNavigate }: AdminOverviewProps) => {
+  const today = new Date().toISOString().split('T')[0];
+  const todaysAppointments = appointments
+    .filter(app => app.appointment_date === today)
+    .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -195,32 +201,35 @@ const AdminOverview = ({ stats, onNavigate }: AdminOverviewProps) => {
         </div>
         
         <div className="space-y-3">
-          {[
-            { time: '09:00 AM', patient: 'John Doe', service: 'General Checkup', status: 'confirmed' },
-            { time: '10:30 AM', patient: 'Jane Smith', service: 'Teeth Cleaning', status: 'confirmed' },
-            { time: '02:00 PM', patient: 'Mike Johnson', service: 'Root Canal', status: 'pending' },
-            { time: '03:30 PM', patient: 'Sarah Williams', service: 'Dental Implant', status: 'confirmed' },
-          ].map((appointment, index) => (
-            <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:shadow-md transition">
+          {todaysAppointments.length === 0 ? (
+            <div className="text-center p-8 text-gray-500">
+              <p>No appointments scheduled for today</p>
+            </div>
+          ) : (
+            todaysAppointments.map((appointment) => (
+            <div key={appointment.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:shadow-md transition">
               <div className="flex items-center gap-4">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center">
                     <Clock className="text-purple-600" size={24} />
                   </div>
-                  <p className="text-xs font-semibold text-gray-600 mt-1">{appointment.time}</p>
+                  <p className="text-xs font-semibold text-gray-600 mt-1">{appointment.appointment_time}</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-800">{appointment.patient}</p>
-                  <p className="text-sm text-gray-600">{appointment.service}</p>
+                  <p className="font-semibold text-gray-800">{appointment.patient_name}</p>
+                  <p className="text-sm text-gray-600">{appointment.service_type}</p>
                 </div>
               </div>
               <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' : 
+                appointment.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                'bg-yellow-100 text-yellow-800'
               }`}>
                 {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
               </span>
             </div>
-          ))}
+          )))}
         </div>
       </div>
 

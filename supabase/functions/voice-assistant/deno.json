@@ -1,0 +1,7 @@
+{
+  "lib": ["esnext", "dom"],
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": false
+  }
+}

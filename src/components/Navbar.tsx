@@ -37,11 +37,10 @@ const Navbar = () => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`text-sm font-medium leading-none transition-colors duration-200 ${
-                  isActive(link.path)
-                    ? 'text-white font-bold border-b-2 border-white'
-                    : 'text-white/90 hover:text-white'
-                }`}
+                className={`text-sm font-medium leading-none transition-colors duration-200 ${isActive(link.path)
+                  ? 'text-white font-bold border-b-2 border-white'
+                  : 'text-white/90 hover:text-white'
+                  }`}
               >
                 {link.name}
               </Link>
@@ -50,25 +49,18 @@ const Navbar = () => {
 
           {/* Right Side Actions */}
           <div className="hidden lg:flex items-center space-x-4">
-            <a
-              href="tel:+27466031234"
-              className="flex items-center space-x-2 text-white hover:text-white/80 transition-colors"
-            >
-              <Phone size={18} />
-              <span className="text-xs md:text-sm font-medium whitespace-nowrap">
-                046 603 1234
-              </span>
-            </a>
-            
+            {/* Phone number removed as per request */}
+
+
             {user ? (
               <div className="flex items-center space-x-3">
                 {isAdmin && (
-                  <Link to="/admin/dashboard" className="btn-secondary text-sm py-2 px-4">
+                  <Link to="/admin-dashboard" className="btn-secondary text-sm py-2 px-4 shadow-sm">
                     Admin
                   </Link>
                 )}
-                <Link to="/patient-portal" className="flex items-center space-x-2 text-gray-700 hover:text-dental-primary">
-                  <User size={18} />
+                <Link to="/patient-dashboard" className="flex items-center space-x-2 text-white hover:text-white/80">
+                  <User size={20} />
                 </Link>
                 <button onClick={() => signOut()} className="text-sm text-gray-600 hover:text-gray-900">
                   Sign Out
@@ -106,28 +98,21 @@ const Navbar = () => {
                 key={link.path}
                 to={link.path}
                 onClick={() => setIsOpen(false)}
-                className={`block py-3 px-4 text-sm font-medium transition-colors ${
-                  isActive(link.path)
-                    ? 'text-purple-600 bg-white font-bold'
-                    : 'text-white hover:bg-purple-600'
-                }`}
+                className={`block py-3 px-4 text-sm font-medium transition-colors ${isActive(link.path)
+                  ? 'text-purple-600 bg-white font-bold'
+                  : 'text-white hover:bg-purple-600'
+                  }`}
               >
                 {link.name}
               </Link>
             ))}
             <div className="mt-4 px-4 space-y-3">
-              <a
-                href="tel:+27466031234"
-                className="flex items-center space-x-2 text-white py-2"
-              >
-                <Phone size={18} />
-                <span className="text-sm font-medium">046 603 1234</span>
-              </a>
+              {/* Phone number removed from mobile menu */}
               {user ? (
                 <>
                   {isAdmin && (
                     <Link
-                      to="/admin/dashboard"
+                      to="/admin-dashboard"
                       onClick={() => setIsOpen(false)}
                       className="block bg-white text-purple-600 text-sm py-3 text-center rounded-lg font-semibold hover:bg-purple-50"
                     >
@@ -135,11 +120,11 @@ const Navbar = () => {
                     </Link>
                   )}
                   <Link
-                    to="/patient-portal"
+                    to="/patient-dashboard"
                     onClick={() => setIsOpen(false)}
                     className="block bg-white text-purple-600 text-sm py-3 text-center rounded-lg font-semibold hover:bg-purple-50"
                   >
-                    Patient Portal
+                    Patient Dashboard
                   </Link>
                   <button
                     onClick={() => {
@@ -168,7 +153,7 @@ const Navbar = () => {
                     Book Appointment
                   </Link>
                 </>
-              
+
               )}
             </div>
           </div>

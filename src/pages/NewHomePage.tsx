@@ -1,63 +1,76 @@
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Phone, Mail } from 'lucide-react';
 import { useInView } from '../hooks/useInView';
 
-const NewHomePage = () => {
-  const ServiceCard = ({ title, description, color, link }: any) => {
-    const { ref, isInView } = useInView({ threshold: 0.3, triggerOnce: true });
-    
-    const colorClasses = {
-      blue: 'bg-[#6B9BD1] text-white',
-      white: 'bg-white text-gray-900 border-2 border-gray-200',
-      purple: 'bg-[#B794F6] text-white',
-      green: 'bg-[#7FD99A] text-gray-900',
-    };
+interface ServiceCardProps {
+  title: string;
+  description: string;
+  color: 'blue' | 'white' | 'purple' | 'green';
+  link: string;
+}
 
-    return (
-      <motion.div
-        ref={ref}
-        initial={{ opacity: 0, y: 30 }}
-        animate={isInView ? { opacity: 1, y: 0 } : {}}
-        transition={{ duration: 0.6 }}
-        className={`${colorClasses[color as keyof typeof colorClasses]} p-8 rounded-2xl hover:scale-105 transition-transform duration-300`}
+const ServiceCard = ({ title, description, color, link }: ServiceCardProps) => {
+  const { ref, isInView } = useInView({ threshold: 0.3, triggerOnce: true });
+
+  const colorClasses = {
+    blue: 'bg-[#6B9BD1] text-white',
+    white: 'bg-white text-gray-900 border-2 border-gray-200',
+    purple: 'bg-[#B794F6] text-white',
+    green: 'bg-[#7FD99A] text-gray-900',
+  };
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 30 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.6 }}
+      className={`${colorClasses[color]} p-8 rounded-2xl hover:scale-105 transition-transform duration-300`}
+    >
+      <h3 className="text-2xl font-bold mb-3">{title}</h3>
+      <p className="mb-6 opacity-90">{description}</p>
+      <Link
+        to={link}
+        className="inline-flex items-center gap-2 font-semibold hover:gap-4 transition-all"
       >
-        <h3 className="text-2xl font-bold mb-3">{title}</h3>
-        <p className="mb-6 opacity-90">{description}</p>
-        <Link 
-          to={link}
-          className="inline-flex items-center gap-2 font-semibold hover:gap-4 transition-all"
-        >
-          Learn More
-          <ArrowRight size={20} />
-        </Link>
-      </motion.div>
-    );
-  };
+        Learn More
+        <ArrowRight size={20} />
+      </Link>
+    </motion.div>
+  );
+};
 
-  const TreatmentCard = ({ title, description }: any) => {
-    return (
-      <div className="bg-white p-6 rounded-xl border-2 border-gray-200 hover:border-purple-400 transition-colors">
-        <div className="flex justify-between items-start mb-3">
-          <h4 className="text-lg font-bold">{title}</h4>
-          <ArrowRight className="text-gray-400" size={20} />
-        </div>
-        <p className="text-sm text-gray-600">{description}</p>
+const TreatmentCard = ({ title, description }: { title: string; description: string }) => {
+  return (
+    <div className="bg-white p-6 rounded-xl border-2 border-gray-200 hover:border-purple-400 transition-colors">
+      <div className="flex justify-between items-start mb-3">
+        <h4 className="text-lg font-bold">{title}</h4>
+        <ArrowRight className="text-gray-400" size={20} />
       </div>
-    );
-  };
+      <p className="text-sm text-gray-600">{description}</p>
+    </div>
+  );
+};
 
+const NewHomePage = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
-        {/* Background Image */}
-        <div className="absolute inset-0">
-          <img 
-            src="/heroImage.webp"
-            alt="Dental Care"
-            className="w-full h-full object-cover opacity-40"
+        {/* Background Video */}
+        <div className="absolute inset-0 overflow-hidden">
+          <iframe
+            title="vimeo-player"
+            src="https://player.vimeo.com/video/759913617?h=e3671c75da&background=1&autoplay=1&loop=1&byline=0&title=0"
+            className="w-full h-full object-cover pointer-events-none scale-150"
+            style={{ minHeight: '100%', minWidth: '100%' }}
+            frameBorder="0"
+            allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
+            allowFullScreen
           />
+          <div className="absolute inset-0 bg-gray-900/60" />
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20 md:pt-32 md:pb-24">

@@ -41,7 +41,7 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 
 ## Voice AI Platform Configuration
 
-You can integrate with multiple voice AI platforms. Here are the configurations for both Vapi.ai and Retell AI.
+You can integrate with multiple voice AI platforms. Here are the configurations for Vapi.ai, Retell AI, and the new SIM AI + ElevenLabs integration.
 
 ### Vapi.ai Configuration
 
@@ -373,6 +373,40 @@ https://<your-project-ref>.supabase.co/functions/v/voice-assistant
 
 ### 4. Configure the Function Tools in Vapi
 In your Vapi assistant configuration, add the three functions as tools and make sure they're set to be used automatically when appropriate.
+
+### SIM AI + Puter.js Configuration
+
+#### 1. Get API Key
+- Sign up at [sim.ai](https://www.sim.ai) for SIM AI access
+- Get your API key from the dashboard
+
+#### 2. Deploy the Voice Assistant Function
+
+The SIM AI + Puter.js integration uses a Supabase Edge Function to securely handle API calls without exposing your API keys to the frontend. This function is created in `supabase/functions/voice-assistant/index.ts`.
+
+To deploy it:
+
+```bash
+supabase functions deploy voice-assistant
+```
+
+#### 3. Set Environment Variables
+
+Set your SIM AI API key as a Supabase secret:
+
+```bash
+supabase secrets set SIM_API_KEY="your_sim_api_key_here"
+```
+
+#### 4. Update Environment Variables in Your Frontend
+
+Add your SIM AI credentials to your .env.local file:
+
+```env
+VITE_SIM_API_KEY=your_sim_api_key_here
+```
+
+The ThandiVoiceAssistant component will use these credentials to connect to the SIM AI backend. The text-to-speech functionality uses Puter.js which doesn't require an API key and is loaded via a script tag in index.html.
 
 ## Frontend Integration
 

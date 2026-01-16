@@ -1,182 +1,93 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const emailjsServiceId = "service_yawbxfr";
-const emailjsTemplateId = "dentist_email";
-const emailjsPublicKey = Deno.env.get("EMAILJS_PUBLIC_KEY") || "YOUR_PUBLIC_KEY";
+const GMAIL_USER = Deno.env.get("GMAIL_USER")!;
+const GMAIL_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD")!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const client = new SmtpClient();
 
-/**
- * Send email via EmailJS
- */
-async function sendEmailViaEmailJS(emailData: Record<string, any>): Promise<boolean> {
+const sendEmail = async (to: string, subject: string, htmlContent: string) => {
   try {
-    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        service_id: emailjsServiceId,
-        template_id: emailjsTemplateId,
-        user_id: emailjsPublicKey,
-        template_params: emailData,
-      }),
+    await client.connectTLS({
+      hostname: "smtp.gmail.com",
+      port: 465,
+      username: GMAIL_USER,
+      password: GMAIL_PASSWORD,
     });
 
-    return response.ok;
+    await client.send({
+      from: `Makhanda Smiles <${GMAIL_USER}>`,
+      to: to,
+      subject: subject,
+      content: htmlContent,
+      html: htmlContent,
+    });
+    await client.close();
+    return true;
   } catch (error) {
-    console.error("Failed to send email:", error);
+    console.error("Email Sent Error:", error);
     return false;
   }
-}
-
-/**
- * Process all due reminders
- */
-async function processDueReminders() {
-  try {
-    // Get all pending reminders that are due
-    const { data: reminders, error } = await supabase
-      .from("appointment_reminders")
-      .select(
-        `
-        id,
-        reminder_type,
-        appointment_id,
-        appointments (
-          id,
-          patient_name,
-          patient_email,
-          appointment_date,
-          appointment_time,
-          service_type
-        )
-      `
-      )
-      .eq("status", "pending")
-      .lte("scheduled_time", new Date().toISOString())
-      .limit(50);
-
-    if (error) {
-      console.error("Error fetching reminders:", error);
-      return { processed: 0, sent: 0, failed: 0 };
-    }
-
-    let sent = 0;
-    let failed = 0;
-
-    for (const reminder of reminders || []) {
-      try {
-        const appointment = reminder.appointments[0];
-        let emailData: Record<string, any> = {
-          to_email: appointment.patient_email,
-          to_name: appointment.patient_name,
-          appointment_date: appointment.appointment_date,
-          appointment_time: appointment.appointment_time,
-          service_type: appointment.service_type,
-          dentist_name: "Makhanda Smiles Team",
-          practice_phone: "+27 (0)123 456 7890",
-        };
-
-        if (reminder.reminder_type === "24h") {
-          emailData = {
-            ...emailData,
-            subject: "Reminder: Your Appointment Tomorrow",
-            template_type: "appointment_reminder_24h",
-            appointment_duration: "60 minutes",
-            custom_content: `This is a friendly reminder that your ${appointment.service_type} appointment is scheduled for tomorrow at ${appointment.appointment_time}. Please arrive 10 minutes early.`,
-          };
-        } else if (reminder.reminder_type === "2h") {
-          emailData = {
-            ...emailData,
-            subject: "Reminder: Your Appointment in 2 Hours",
-            template_type: "appointment_reminder_2h",
-            custom_content: `Don't forget! Your ${appointment.service_type} appointment is in 2 hours at ${appointment.appointment_time}. We're looking forward to seeing you!`,
-          };
-        }
-
-        const emailSent = await sendEmailViaEmailJS(emailData);
-
-        // Update reminder status
-        const { error: updateError } = await supabase
-          .from("appointment_reminders")
-          .update({
-            status: emailSent ? "sent" : "failed",
-            sent_at: emailSent ? new Date().toISOString() : null,
-          })
-          .eq("id", reminder.id);
-
-        if (!updateError) {
-          // Log email
-          await supabase.from("email_logs").insert({
-            recipient_email: appointment.patient_email,
-            subject: emailData.subject,
-            template_type: emailData.template_type,
-            appointment_id: appointment.id,
-            status: emailSent ? "sent" : "failed",
-            sent_at: emailSent ? new Date().toISOString() : null,
-          });
-
-          if (emailSent) {
-            sent++;
-          } else {
-            failed++;
-          }
-        }
-      } catch (reminderError) {
-        console.error("Error processing reminder:", reminderError);
-        failed++;
-      }
-    }
-
-    return {
-      processed: reminders?.length || 0,
-      sent,
-      failed,
-    };
-  } catch (error) {
-    console.error("Error in processDueReminders:", error);
-    return { processed: 0, sent: 0, failed: 0 };
-  }
-}
+};
 
 serve(async (req: Request) => {
-  // Enable CORS
-  if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
-    });
-  }
-
   try {
-    if (req.method === "POST") {
-      const result = await processDueReminders();
+    // 1. Get Due Reminders
+    const { data: reminders, error } = await supabase
+      .from("appointment_reminders")
+      .select(`
+        id, reminder_type,
+        appointments (
+          patient_name, patient_email, appointment_date, appointment_time, service_type
+        )
+      `)
+      .eq("status", "pending")
+      .lte("scheduled_time", new Date().toISOString())
+      .limit(20);
 
-      return new Response(JSON.stringify(result), {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
+    if (error) throw error;
+    if (!reminders || reminders.length === 0) return new Response(JSON.stringify({ message: "No reminders due" }), { headers: { "Content-Type": "application/json" } });
+
+    let sentCount = 0;
+
+    for (const r of reminders) {
+      const apt = r.appointments;
+      if (!apt) continue;
+
+      let subject = "";
+      let content = "";
+
+      if (r.reminder_type === '24h') {
+        subject = "Reminder: Appointment Tomorrow";
+        content = `<p>Hi ${apt.patient_name},</p><p>This is a reminder for your <strong>${apt.service_type}</strong> appointment tomorrow at <strong>${apt.appointment_time}</strong>.</p>`;
+      } else if (r.reminder_type === 'day_of') {
+        subject = "Reminder: Appointment Today";
+        content = `<p>Hi ${apt.patient_name},</p><p>You have an appointment today at <strong>${apt.appointment_time}</strong> for ${apt.service_type}. We look forward to seeing you!</p>`;
+      } else if (r.reminder_type === '2h') {
+        subject = "Reminder: Appointment in 2 Hours";
+        content = `<p>Hi ${apt.patient_name},</p><p>See you in 2 hours!</p>`;
+      }
+
+      const sent = await sendEmail(apt.patient_email, subject, content);
+
+      // Update status
+      await supabase.from("appointment_reminders").update({
+        status: sent ? 'sent' : 'failed',
+        sent_at: new Date().toISOString()
+      }).eq('id', r.id);
+
+      if (sent) sentCount++;
     }
 
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ processed: reminders.length, sent: sentCount }), { headers: { "Content-Type": "application/json" } });
+
   } catch (error) {
-    console.error("Edge Function error:", error);
-    return new Response(JSON.stringify({ error: String(error) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    console.error(error);
+    return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
   }
 });

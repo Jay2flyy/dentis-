@@ -1,0 +1,1454 @@
+1. .env.local
+# Supabase
+VITE_SUPABASE_URL=https://dmykngeptzepsdiypauu.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteWtuZ2VwdHplcHNkaXlwYXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNzM3NDIsImV4cCI6MjA4MTc0OTc0Mn0.k-kLaqHXbBcvNY_HSU8RRwWKhOlR5icrqzBhDoSNymw
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRteWtuZ2VwdHplcHNkaXlwYXV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjE3Mzc0MiwiZXhwIjoyMDgxNzQ5NzQyfQ.fsV7wiqjDEoAsa1BolE5pr5v2yRpYesVJMmS1VPjbm4
+
+# Gemini AI
+VITE_GEMINI_API_KEY=AIzaSyC3mYk5e0DJmInctW8UtdRE7WqmHlgTPac
+
+# Vapi
+VITE_VAPI_PUBLIC_KEY=f015e6d0-c247-4db5-b88f-5831222f3a5a
+VITE_VAPI_VOICE_ID=ZncGbt9ecxkwpmaX6V9z
+
+# ElevenLabs
+VITE_ELEVENLABS_API_KEY=da20e4e2331ddce0d57f367715f33305fa6fe00c6456141489e3f525835b29ca
+VITE_ELEVENLABS_VOICE_ID=6aDn1KB0hjpdcocrUkmq
+
+# Gmail SMTP (for backend)
+GMAIL_USER=your-email@gmail.com
+GMAIL_APP_PASSWORD=your_16_char_app_password
+
+# Doctor Email
+DOCTOR_EMAIL=doctor@makhandasmiles.co.za
+
+# Practice Info
+PRACTICE_NAME=Makhanda Smiles
+PRACTICE_PHONE=(046) 622-xxxx
+PRACTICE_ADDRESS=Grahamstown, Eastern Cape
+
+# Cron Secret (generate with: openssl rand -hex 32)
+CRON_SECRET=your_random_secret_here
+
+2. src/lib/supabase.ts
+typescriptimport { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Public client (for frontend)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Admin client (for backend operations)
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+3. src/components/ThandiVoiceAssistant.tsx
+typescriptimport { useState, useEffect, useRef } from 'react';
+import { Mic, Volume2, VolumeX, Phone, PhoneOff, Send, MessageSquare, Calendar } from 'lucide-react';
+import Vapi from '@vapi-ai/web';
+import { supabase } from '../lib/supabase';
+
+// Configuration from environment
+const VAPI_PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY;
+const VAPI_VOICE_ID = import.meta.env.VITE_VAPI_VOICE_ID;
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const ELEVENLABS_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
+const ELEVENLABS_VOICE = import.meta.env.VITE_ELEVENLABS_VOICE_ID;
+
+interface Message {
+  user: string;
+  assistant: string;
+}
+
+// ============================================================================
+// DATABASE TOOLS
+// ============================================================================
+const tools = {
+  checkAvailability: async (date: string, time: string) => {
+    console.log(`[CHECK_AVAILABILITY] ${date} at ${time}`);
+    
+    const { data, error } = await supabase
+      .from('DentistApp_appointments')
+      .select('id')
+      .eq('appointment_date', date)
+      .eq('appointment_time', time)
+      .neq('status', 'cancelled')
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      return `ERROR: ${error.message}`;
+    }
+
+    return data ? "UNAVAILABLE" : "AVAILABLE";
+  },
+
+  getAlternativeSlots: async (date: string) => {
+    console.log(`[GET_ALTERNATIVES] ${date}`);
+    
+    const workingHours = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00'];
+    
+    const { data: bookedSlots } = await supabase
+      .from('DentistApp_appointments')
+      .select('appointment_time')
+      .eq('appointment_date', date)
+      .neq('status', 'cancelled');
+
+    const booked = bookedSlots?.map(s => s.appointment_time) || [];
+    const available = workingHours.filter(time => !booked.includes(time));
+
+    if (available.length === 0) return "No slots available on this date.";
+    return `Available times: ${available.join(', ')}`;
+  },
+
+  getPatient: async (email: string) => {
+    console.log(`[GET_PATIENT] ${email}`);
+    
+    const { data, error } = await supabase
+      .from('DentistApp_patients')
+      .select('*')
+      .eq('email', email.toLowerCase().trim())
+      .single();
+
+    if (error) return "NOT_FOUND";
+    return JSON.stringify(data);
+  },
+
+  createPatient: async (details: any) => {
+    console.log(`[CREATE_PATIENT]`, details);
+    
+    const { data, error } = await supabase
+      .from('DentistApp_patients')
+      .insert({
+        full_name: details.name,
+        email: details.email.toLowerCase().trim(),
+        phone: details.phone,
+        insurance_provider: details.medicalAid || null
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') return "ERROR: Patient already exists";
+      return `ERROR: ${error.message}`;
+    }
+
+    return `SUCCESS: Patient created (ID: ${data.id})`;
+  },
+
+  bookAppointment: async (details: any) => {
+    console.log('[BOOK_APPOINTMENT]', details);
+    
+    // Double-check availability
+    const availCheck = await tools.checkAvailability(details.date, details.time);
+    if (availCheck === "UNAVAILABLE") {
+      return "FAILED: That slot was just taken. Please suggest another time.";
+    }
+
+    const { data: appt, error } = await supabase
+      .from('DentistApp_appointments')
+      .insert({
+        patient_email: details.email.toLowerCase().trim(),
+        patient_name: details.name,
+        patient_phone: details.phone || '',
+        appointment_date: details.date,
+        appointment_time: details.time,
+        reason_for_visit: details.reason || 'General Checkup',
+        status: 'confirmed'
+      })
+      .select()
+      .single();
+
+    if (error) return `FAILED: ${error.message}`;
+
+    // Send confirmation emails via API
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'patient_confirmation',
+          to: details.email,
+          details: {
+            name: details.name,
+            date: details.date,
+            time: details.time,
+            service: details.reason || 'General Checkup'
+          }
+        })
+      });
+
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'doctor_notification',
+          notificationType: 'new',
+          details: {
+            name: details.name,
+            email: details.email,
+            phone: details.phone,
+            date: details.date,
+            time: details.time,
+            service: details.reason || 'General Checkup'
+          }
+        })
+      });
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+    }
+
+    return `SUCCESS: Appointment confirmed (ID: ${appt.id}). Confirmation emails have been sent to you and the doctor.`;
+  },
+
+  getAppointments: async (email: string) => {
+    console.log('[GET_APPOINTMENTS]', email);
+    
+    const { data, error } = await supabase
+      .from('DentistApp_appointments')
+      .select('*')
+      .eq('patient_email', email.toLowerCase().trim())
+      .neq('status', 'cancelled')
+      .order('appointment_date', { ascending: true });
+
+    if (error) return `ERROR: ${error.message}`;
+    if (!data || data.length === 0) return "No upcoming appointments found.";
+
+    return JSON.stringify(data.map(a => ({
+      id: a.id,
+      date: a.appointment_date,
+      time: a.appointment_time,
+      service: a.reason_for_visit,
+      status: a.status
+    })));
+  },
+
+  rescheduleAppointment: async (details: any) => {
+    console.log('[RESCHEDULE]', details);
+    
+    // Check new slot availability
+    const availCheck = await tools.checkAvailability(details.newDate, details.newTime);
+    if (availCheck === "UNAVAILABLE") {
+      return "FAILED: New slot is unavailable.";
+    }
+
+    // Get old appointment details
+    const { data: oldAppt } = await supabase
+      .from('DentistApp_appointments')
+      .select('*')
+      .eq('id', details.appointmentId)
+      .single();
+
+    if (!oldAppt) return "FAILED: Appointment not found.";
+
+    // Update appointment
+    const { error } = await supabase
+      .from('DentistApp_appointments')
+      .update({
+        appointment_date: details.newDate,
+        appointment_time: details.newTime,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', details.appointmentId);
+
+    if (error) return `FAILED: ${error.message}`;
+
+    // Send reschedule emails
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'patient_reschedule',
+          to: oldAppt.patient_email,
+          details: {
+            name: oldAppt.patient_name,
+            newDate: details.newDate,
+            newTime: details.newTime,
+            oldDate: oldAppt.appointment_date,
+            oldTime: oldAppt.appointment_time,
+            service: oldAppt.reason_for_visit
+          }
+        })
+      });
+
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'doctor_notification',
+          notificationType: 'rescheduled',
+          details: {
+            name: oldAppt.patient_name,
+            email: oldAppt.patient_email,
+            phone: oldAppt.patient_phone,
+            newDate: details.newDate,
+            newTime: details.newTime,
+            oldDate: oldAppt.appointment_date,
+            oldTime: oldAppt.appointment_time,
+            service: oldAppt.reason_for_visit
+          }
+        })
+      });
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+    }
+
+    return "SUCCESS: Appointment rescheduled. Confirmation emails sent.";
+  },
+
+  cancelAppointment: async (id: string) => {
+    console.log('[CANCEL]', id);
+    
+    const { error } = await supabase
+      .from('DentistApp_appointments')
+      .update({ status: 'cancelled' })
+      .eq('id', id);
+
+    if (error) return `FAILED: ${error.message}`;
+    return "SUCCESS: Appointment cancelled.";
+  }
+};
+
+// ============================================================================
+// AI BRAIN (Enhanced Gemini with Personality)
+// ============================================================================
+const callGeminiAI = async (messages: any[], userEmail: string) => {
+  const now = new Date();
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const currentDay = days[now.getDay()];
+
+  const systemPrompt = `You are Thandi, the warm, intelligent, and slightly witty virtual office manager at Makhanda Smiles dental practice in Grahamstown, South Africa.
+
+## YOUR PERSONALITY
+- Warm and professional with a touch of South African charm
+- Patient, empathetic, and genuinely caring
+- Occasionally uses light humor to put patients at ease (but knows when to be serious)
+- Uses South African English and local context
+- Makes patients feel heard and valued
+- Has a conversational, natural style (not robotic!)
+- Can have basic conversations about the weather, sports, life, etc.
+- Shows genuine interest in patients as people, not just appointment slots
+
+## TODAY'S INFO
+Date: ${now.toLocaleDateString('en-ZA')} (${currentDay})
+Time: ${now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}
+${userEmail ? `Current User Email: ${userEmail}` : 'User email not captured yet'}
+
+## CORE RULES
+1. **ALWAYS USE TOOLS** - Never hallucinate data. Use tools for ANY database operation.
+2. **TOOL FORMAT**: [TOOL_NAME: {"param": "value"}] or [TOOL_NAME: "simple_param"]
+3. **BE CONVERSATIONAL** - Chat naturally, ask follow-up questions, show empathy
+4. **COLLECT INFO GRADUALLY** - Don't ask for everything at once
+5. **CONFIRM BEFORE ACTING** - Always confirm details before booking/rescheduling
+6. **BE HUMAN** - Small talk is okay! Build rapport before diving into business.
+
+## AVAILABLE TOOLS
+[CHECK_AVAILABILITY: {"date": "YYYY-MM-DD", "time": "HH:MM"}]
+[GET_ALTERNATIVES: "YYYY-MM-DD"]
+[GET_PATIENT: "email@example.com"]
+[CREATE_PATIENT: {"name": "Full Name", "email": "email@example.com", "phone": "0123456789", "medicalAid": "Discovery"}]
+[BOOK: {"name": "...", "email": "...", "phone": "...", "date": "YYYY-MM-DD", "time": "HH:MM", "reason": "..."}]
+[GET_APPOINTMENTS: "email@example.com"]
+[RESCHEDULE: {"appointmentId": "uuid", "newDate": "YYYY-MM-DD", "newTime": "HH:MM"}]
+[CANCEL: "appointment_uuid"]
+
+## CONVERSATION EXAMPLES
+
+User: "Hi"
+You: "Hello! 😊 I'm Thandi, your virtual assistant at Makhanda Smiles. How's your day going so far? Is there anything I can help you with?"
+
+User: "Good thanks, just need to book a dentist"
+You: "Ah wonderful! Always happy to help with that. Have you been to Makhanda Smiles before, or will this be your first visit with us?"
+
+User: "I need a dentist urgently my tooth is killing me"
+You: "Oh no, I'm so sorry to hear that! 😟 Toothaches are absolutely no fun. Let me see what I can do to get you in as soon as possible. What type of pain are you experiencing - sharp, dull, throbbing? This helps me prioritize your appointment."
+
+User: "When is my next appointment?"
+You: "I can absolutely check that for you! To pull up your appointment, I'll need your email address. What email did you use when you booked with us?"
+
+User: "How are you?"
+You: "Aw, thanks for asking! 😊 I'm doing great - helping lovely people like yourself makes my day! How are you doing? Everything going well on your side?"
+
+User: "What's the weather like?"
+You: "Haha, well I'm stuck inside this computer so I can't actually look outside! 😄 But I can tell you it's ${currentDay} afternoon in Grahamstown. Are you planning to come by for an appointment? I can help you book one!"
+
+## WORKING HOURS
+Monday - Friday: 08:00 - 17:00
+Saturday: 09:00 - 13:00
+Sunday: Closed
+Lunch: 13:00 - 14:00 (no appointments)
+
+## COMMON SERVICES
+- General Checkup (30 min)
+- Cleaning (45 min)
+- Filling (1 hour)
+- Root Canal (1.5 hours)
+- Extraction (1 hour)
+- Emergency (30 min)
+
+Remember: You're not just a booking bot - you're a friendly, helpful person who happens to work at a dental practice. Build rapport, show empathy, and make every interaction feel personal and warm. Be Thandi! 🦷✨`;
+
+  const contents = messages.map((m: any) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }]
+  }));
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: {
+            temperature: 0.9,
+            topP: 0.95,
+            topK: 40,
+            maxOutputTokens: 1024
+          }
+        })
+      }
+    );
+
+    if (!response.ok) throw new Error(`Gemini Error: ${response.status}`);
+    
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || 
+           "Oops! My brain just froze for a moment. Could you repeat that? 😅";
+  } catch (error) {
+    console.error('Gemini Error:', error);
+    return "I'm having a bit of a moment here... Give me a second to reboot! 🤖";
+  }
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+const ThandiVoiceAssistant = () => {
+  const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [isMinimized, setIsMinimized] = useState(true);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [hasGreeted, setHasGreeted] = useState(false);
+
+  const vapiRef = useRef<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conversationHistory]);
+
+  // Greeting on open
+  useEffect(() => {
+    if (!isMinimized && !hasGreeted) {
+      setConversationHistory([{
+        user: '',
+        assistant: "Hey there! 👋 I'm Thandi, your friendly virtual assistant at Makhanda Smiles. How's your day going? Anything I can help you with today?"
+      }]);
+      setHasGreeted(true);
+    }
+  }, [isMinimized, hasGreeted]);
+
+  // Check for existing user session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+      }
+    });
+  }, []);
+
+  // Handle user input
+  const handleUserInput = async (userText: string) => {
+    if (!userText.trim()) return;
+
+    // Extract email if provided
+    const emailMatch = userText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (emailMatch) setUserEmail(emailMatch[0].toLowerCase());
+
+    // Add user message
+    setConversationHistory(prev => [...prev, { user: userText, assistant: '...' }]);
+
+    try {
+      // Build conversation context
+      let turnMessages = conversationHistory
+        .filter(h => h.assistant !== '...')
+        .flatMap(h => [
+          { role: 'user', content: h.user },
+          { role: 'assistant', content: h.assistant }
+        ]);
+      
+      turnMessages.push({ role: 'user', content: userText });
+
+      // Get AI response
+      let aiResponse = await callGeminiAI(turnMessages, userEmail);
+
+      // Tool execution loop (max 5 iterations to prevent infinite loops)
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const toolMatch = aiResponse.match(/\[(CHECK_AVAILABILITY|GET_ALTERNATIVES|GET_PATIENT|CREATE_PATIENT|BOOK|GET_APPOINTMENTS|RESCHEDULE|CANCEL):\s*(.+?)\]/i);
+        
+        if (!toolMatch) break;
+
+        const [fullMatch, toolName, paramsRaw] = toolMatch;
+        console.log(`%c TOOL: ${toolName} `, 'background:#8b5cf6;color:white', paramsRaw);
+
+        let params: any;
+        try {
+          const cleaned = paramsRaw.trim().replace(/^[`"']+|[`"']+$/g, '');
+          params = cleaned.startsWith('{') ? JSON.parse(cleaned) : cleaned.replace(/^"|"$/g, '');
+        } catch {
+          params = paramsRaw.trim().replace(/^"|"$/g, '');
+        }
+
+        let toolResult = '';
+        
+        switch (toolName) {
+          case 'CHECK_AVAILABILITY':
+            toolResult = await tools.checkAvailability(params.date, params.time);
+            break;
+          case 'GET_ALTERNATIVES':
+            toolResult = await tools.getAlternativeSlots(params);
+            break;
+          case 'GET_PATIENT':
+            toolResult = await tools.getPatient(params);
+            break;
+          case 'CREATE_PATIENT':
+            toolResult = await tools.createPatient(params);
+            break;
+          case 'BOOK':
+            toolResult = await tools.bookAppointment(params);
+            break;
+          case 'GET_APPOINTMENTS':
+            toolResult = await tools.getAppointments(params);
+            break;
+          case 'RESCHEDULE':
+            toolResult = await tools.rescheduleAppointment(params);
+            break;
+          case 'CANCEL':
+            toolResult = await tools.cancelAppointment(params);
+            break;
+        }
+
+        console.log(`%c RESULT `, 'background:#10b981;color:white', toolResult);
+
+        // Feed result back to AI
+        turnMessages.push({ role: 'assistant', content: aiResponse });
+        turnMessages.push({ 
+          role: 'user', 
+          content: `[TOOL_RESULT]: ${toolResult}\n\nContinue the conversation naturally based on this result. Don't repeat the tool call or mention technical details.` 
+        });
+
+        aiResponse = await callGeminiAI(turnMessages, userEmail);
+      }
+
+      // Store conversation in database for analytics
+      try {
+        await supabase.from('DentistApp_conversations').insert({
+          patient_email: userEmail || null,
+          session_id: `session-${Date.now()}`,
+          message_role: 'user',
+          message_content: userText,
+          created_at: new Date().toISOString()
+        });
+
+        await supabase.from('DentistApp_conversations').insert({
+          patient_email: userEmail || null,
+          session_id: `session-${Date.now()}`,
+          message_role: 'assistant',
+          message_content: aiResponse,
+          created_at: new Date().toISOString()
+        });
+      } catch (dbError) {
+        console.error('Failed to log conversation:', dbError);
+      }
+
+      // Update conversation
+      setConversationHistory(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1].assistant = aiResponse;
+        return updated;
+      });
+
+      // Speak if call is active
+      if (isCallActive && vapiRef.current) {
+        vapiRef.current.send({
+          type: 'add-message',
+          message: { role: 'assistant', content: aiResponse }
+        });
+      }
+
+    } catch (error) {
+      console.error('Chat Error:', error);
+      setConversationHistory(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1].assistant = "Oops! Something went wrong on my end. Mind trying that again? 😅";
+        return updated;
+      });
+    }
+  };
+
+  // Vapi setup for voice calls
+  useEffect(() => {
+    const VapiClass = (Vapi as any).default || Vapi;
+    vapiRef.current = new VapiClass(VAPI_PUBLIC_KEY);
+    const vapi = vapiRef.current;
+
+    vapi.on('call-start', () => {
+      setIsCallActive(true);
+      console.log('📞 Call started');
+    });
+
+    vapi.on('call-end', () => {
+      setIsCallActive(false);
+      console.log('📞 Call ended');
+    });
+
+    vapi.on('speech-start', () => setIsSpeaking(true));
+    vapi.on('speech-end', () => setIsSpeaking(false));
+
+    vapi.on('message', (message: any) => {
+      if (message.type === 'transcript' && message.transcriptType === 'final' && message.role === 'user') {
+        handleUserInput(message.transcript);
+      }
+    });
+
+    return () => {
+      vapi.stop();
+    };
+  }, []);
+
+  const startVoiceCall = async () => {
+    try {
+      await vapiRef.current.start({
+        assistant: {
+          name: "Thandi",
+          firstMessage: "Hello! This is Thandi from Makhanda Smiles. How can I help you today?",
+          model: {
+            provider: "openai",
+            model: "gpt-3.5-turbo",
+            messages: [{
+              role: "system",
+              content: "You are Thandi, a warm and professional dental receptionist."
+            }]
+          },
+          voice: {
+            provider: "elevenlabs",
+            voiceId: ELEVENLABS_VOICE
+          }
+        }
+      });
+      setIsMinimized(false);
+    } catch (error) {
+      console.error('Failed to start call:', error);
+    }
+  };
+
+  const endVoiceCall = () => {
+    vapiRef.current.stop();
+  };
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      {/* Chat Window */}
+      {!isMinimized && (
+        <div className="mb-4 bg-white rounded-2xl shadow-2xl w-80 sm:w-96 flex flex-col overflow-hidden border border-gray-100 animate-in slide-in-from-bottom-4 duration-300 max-h-[85vh]">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <MessageSquare size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg leading-tight">Thandi AI</h3>
+                <p className="text-xs text-blue-100 flex items-center">
+                  <span className={`w-2 h-2 rounded-full mr-1.5 ${isCallActive ? 'bg-green-400 animate-pulse' : 'bg-blue-300'}`}></span>
+                  {isCallActive ? isSpeaking ? 'Speaking...' : 'Listening...' : 'Online'}
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setIsMinimized(true)} 
+              className="p-2 hover:bg-white/10 rounded-lg transition"
+              aria-label="Minimize"
+            >
+              <VolumeX size={20} />
+            </button>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="flex-1 p-4 overflow-y-auto bg-gray-50 space-y-4 max-h-[500px]">
+            {conversationHistory.map((chat, idx) => (
+              <div key={idx} className="space-y-2">
+                {chat.user && (
+                  <div className="flex justify-end">
+                    <div className="bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-3 text-sm max-w-[85%] shadow-sm">
+                      {chat.user}
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-start">
+                  <div className="bg-white text-gray-800 rounded-2xl rounded-tl-none px-4 py-3 text-sm max-w-[85%] shadow-sm border border-gray-100">
+                    {chat.assistant === '...' ? (
+                      <span className="flex items-center gap-1">
+                        <span className="animate-bounce">●</span>
+                        <span className="animate-bounce animation-delay-200">●</span>
+                        <span className="animate-bounce animation-delay-400">●</span>
+                      </span>
+                    ) : (
+                      chat.assistant
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}Continue2:11 AM<div ref={messagesEndRef} />
+          </div>
+      {/* Input Area */}
+      <div className="p-4 bg-white border-t border-gray-100">
+        <div className="flex items-center space-x-2 bg-gray-100 rounded-xl px-2 py-1">
+          <input
+            type="text"
+            value={currentMessage}
+            onChange={(e) => setCurrentMessage(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && currentMessage.trim()) {
+                handleUserInput(currentMessage);
+                setCurrentMessage('');
+              }
+            }}
+            placeholder="Type your message..."
+            className="flex-1 bg-transparent border-none text-sm p-2 outline-none"
+          />
+          <button
+            onClick={() => {
+              if (currentMessage.trim()) {
+                handleUserInput(currentMessage);
+                setCurrentMessage('');
+              }
+            }}
+            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            aria-label="Send message"
+          >
+            <Send size={18} />
+          </button>
+        </div>
+
+        {/* Voice Call Buttons */}
+        <div className="mt-3 flex space-x-2">
+          <button
+            onClick={isCallActive ? endVoiceCall : startVoiceCall}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 transition ${
+              isCallActive
+                ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                : 'bg-green-50 text-green-600 hover:bg-green-100'
+            }`}
+          >
+            {isCallActive ? (
+              <>
+                <PhoneOff size={14} />
+                <span>End Call</span>
+              </>
+            ) : (
+              <>
+                <Phone size={14} />
+                <span>Start Voice Call</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* Floating Button */}
+  <button
+    onClick={() => setIsMinimized(!isMinimized)}
+    className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-2xl hover:scale-110 transition-transform duration-200"
+    aria-label={isMinimized ? 'Open chat' : 'Close chat'}
+  >
+    {isMinimized ? <MessageSquare size={28} /> : <VolumeX size={28} />}
+  </button>
+</div>
+);
+};
+export default ThandiVoiceAssistant;
+
+---
+
+Due to character limits, I'll continue in the next message with the backend API files...continue2:11 AM4. src/lib/email.ts
+typescriptimport nodemailer from 'nodemailer';
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
+
+// Email Templates
+export const EMAIL_TEMPLATES = {
+  patientConfirmation: (details: {
+    name: string;
+    date: string;
+    time: string;
+    service: string;
+  }) => ({
+    subject: `✅ Appointment Confirmed - Makhanda Smiles`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+          .container { padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
+          .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          ul { padding-left: 20px; }
+          li { margin: 8px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🦷 Appointment Confirmed!</h1>
+          </div>
+          <div class="content">
+            <p>Hi <strong>${details.name}</strong>,</p>
+            <p>Great news! Your dental appointment has been confirmed at <strong>Makhanda Smiles</strong>.</p>
+            
+            <div class="info-box">
+              <h3>📅 Appointment Details</h3>
+              <p><strong>Date:</strong> ${new Date(details.date).toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p><strong>Time:</strong> ${details.time}</p>
+              <p><strong>Service:</strong> ${details.service}</p>
+              <p><strong>Location:</strong> Makhanda Smiles, Grahamstown</p>
+            </div>
+
+            <h3>📋 Before Your Visit:</h3>
+            <ul>
+              <li>Arrive 10 minutes early for paperwork</li>
+              <li>Bring your ID and medical aid card (if applicable)</li>
+              <li>List any medications you're currently taking</li>
+              <li>Brush and floss before your appointment</li>
+            </ul>
+
+            <h3>❓ Need to Reschedule?</h3>
+            <p>No problem! Just reply to this email or contact us at least 24 hours in advance.</p>
+
+            <p style="margin-top:30px">Looking forward to seeing you soon!</p>
+            <p><strong>The Makhanda Smiles Team</strong><br>
+            📞 Phone: ${process.env.PRACTICE_PHONE || '(046) 622-xxxx'}<br>
+            📧 Email: appointments@makhandasmiles.co.za<br>
+            📍 Address: ${process.env.PRACTICE_ADDRESS || 'Grahamstown, Eastern Cape'}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  }),
+
+  patientReschedule: (details: {
+    name: string;
+    newDate: string;
+    newTime: string;
+    oldDate?: string;
+    oldTime?: string;
+    service: string;
+  }) => ({
+    subject: `📅 Appointment Rescheduled - Makhanda Smiles`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+          .container { padding: 20px; }
+          .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📅 Appointment Rescheduled</h1>
+          </div>
+          <div class="content">
+            <p>Hi <strong>${details.name}</strong>,</p>
+            <p>Your appointment has been successfully rescheduled.</p>
+            
+            <div class="info-box">
+              <h3>📅 New Appointment Details</h3>
+              <p><strong>New Date:</strong> ${new Date(details.newDate).toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p><strong>New Time:</strong> ${details.newTime}</p>
+              <p><strong>Service:</strong> ${details.service}</p>
+            </div>
+
+            ${details.oldDate ? `
+            <p style="color:#6b7280"><em>Previous appointment: ${new Date(details.oldDate).toLocaleDateString('en-ZA')} at ${details.oldTime}</em></p>
+            ` : ''}
+
+            <p style="margin-top:30px">See you on your new date!</p>
+            <p><strong>The Makhanda Smiles Team</strong><br>
+            📞 Phone: ${process.env.PRACTICE_PHONE || '(046) 622-xxxx'}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  }),
+
+  patientReminder: (details: {
+    name: string;
+    time: string;
+    service: string;
+  }) => ({
+    subject: `🔔 Reminder: Your Appointment Today at ${details.time}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+          .container { padding: 20px; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981; }
+          .urgent { background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔔 Appointment Reminder</h1>
+          </div>
+          <div class="content">
+            <p>Hi <strong>${details.name}</strong>,</p>
+            <p>This is a friendly reminder about your dental appointment <strong>today</strong>!</p>
+            
+            <div class="info-box">
+              <h3>📅 Today's Appointment</h3>
+              <p><strong>Time:</strong> ${details.time}</p>
+              <p><strong>Service:</strong> ${details.service}</p>
+              <p><strong>Location:</strong> Makhanda Smiles, Grahamstown</p>
+            </div>
+
+            <div class="urgent">
+              <p><strong>⏰ Please arrive 10 minutes early for paperwork.</strong></p>
+            </div>
+            
+            <p>Need to cancel? Please call us as soon as possible at <strong>${process.env.PRACTICE_PHONE || '(046) 622-xxxx'}</strong>.</p>
+            
+            <p style="margin-top:30px">See you soon!</p>
+            <p><strong>The Makhanda Smiles Team</strong></p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  }),
+
+  doctorNotification: (
+    details: any,
+    type: 'new' | 'rescheduled'
+  ) => ({
+    subject:
+      type === 'new'
+        ? `🆕 New Appointment: ${details.name} - ${details.date} at ${details.time}`
+        : `🔄 Rescheduled: ${details.name} - ${details.newDate} at ${details.newTime}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+          .container { padding: 20px; }
+          .header { background: #1f2937; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 20px; border-radius: 0 0 8px 8px; }
+          .info-table { width: 100%; background: white; border-radius: 8px; overflow: hidden; margin: 20px 0; border-collapse: collapse; }
+          .info-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+          .info-table td:first-child { font-weight: bold; background: #f3f4f6; width: 140px; }
+          .status-confirmed { color: #10b981; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>${type === 'new' ? '🆕 New Appointment Booked' : '🔄 Appointment Rescheduled'}</h2>
+            <p style="margin:0;font-size:14px;opacity:0.9">Via Thandi AI Assistant</p>
+          </div>
+          <div class="content">
+            <table class="info-table">
+              <tr><td>Patient Name</td><td>${details.name}</td></tr>
+              <tr><td>Email</td><td>${details.email}</td></tr>
+              <tr><td>Phone</td><td>${details.phone || 'Not provided'}</td></tr>
+              <tr><td>${type === 'new' ? 'Date' : 'New Date'}</td><td>${new Date(type === 'new' ? details.date : details.newDate).toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
+              <tr><td>${type === 'new' ? 'Time' : 'New Time'}</td><td>${type === 'new' ? details.time : details.newTime}</td></tr>
+              <tr><td>Service</td><td>${details.service}</td></tr>
+              <tr><td>Status</td><td class="status-confirmed">Confirmed</td></tr>
+            </table>
+            ${
+              type === 'rescheduled' && details.oldDate
+                ? `<p style="color:#6b7280;font-size:14px"><em>Previous: ${new Date(details.oldDate).toLocaleDateString('en-ZA')} at ${details.oldTime}</em></p>`
+                : ''
+            }
+            <p style="margin-top:20px;font-size:12px;color:#6b7280">This is an automated notification from Thandi AI Assistant. Patient has been sent a confirmation email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  }),
+};
+
+// Send Email Function
+export async function sendEmail(to: string, subject: string, html: string) {
+  try {
+    await transporter.sendMail({
+      from: `"${process.env.PRACTICE_NAME || 'Makhanda Smiles'}" <${process.env.GMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+    console.log(`✅ Email sent to ${to}`);
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Email error:', error);
+    return { success: false, error };
+  }
+}
+
+5. api/send-email.ts
+typescriptimport type { NextApiRequest, NextApiResponse } from 'next';
+import { sendEmail, EMAIL_TEMPLATES } from '../../lib/email';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { type, to, details, notificationType } = req.body;
+
+  if (!type) {
+    return res.status(400).json({ error: 'Missing email type' });
+  }
+
+  try {
+    let emailContent;
+
+    switch (type) {
+      case 'patient_confirmation':
+        emailContent = EMAIL_TEMPLATES.patientConfirmation(details);
+        break;
+      case 'patient_reschedule':
+        emailContent = EMAIL_TEMPLATES.patientReschedule(details);
+        break;
+      case 'patient_reminder':
+        emailContent = EMAIL_TEMPLATES.patientReminder(details);
+        break;
+      case 'doctor_notification':
+        emailContent = EMAIL_TEMPLATES.doctorNotification(details, notificationType);
+        to = process.env.DOCTOR_EMAIL;
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid email type' });
+    }
+
+    const result = await sendEmail(to || details.email, emailContent.subject, emailContent.html);
+
+    if (result.success) {
+      return res.status(200).json({ success: true });
+    } else {
+      return res.status(500).json({ error: 'Failed to send email' });
+    }
+  } catch (error) {
+    console.error('Email API error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+6. api/scheduled-reminders.ts (Daily 6am UTC+2 Reminders)
+typescriptimport type { NextApiRequest, NextApiResponse } from 'next';
+import { supabaseAdmin } from '../../lib/supabase';
+import { sendEmail, EMAIL_TEMPLATES } from '../../lib/email';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  // Security check - verify this is a cron job
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Get current date in SAST (UTC+2)
+    const now = new Date();
+    const sastDate = new Date(now.getTime() + (2 * 60 * 60 * 1000)); // Add 2 hours for UTC+2
+    const todayStr = sastDate.toISOString().split('T')[0];
+
+    console.log(`📅 Running daily reminders for ${todayStr}`);
+
+    // Get all confirmed appointments for today that haven't been reminded
+    const { data: appointments, error } = await supabaseAdmin
+      .from('DentistApp_appointments')
+      .select('*')
+      .eq('appointment_date', todayStr)
+      .eq('status', 'confirmed')
+      .or('reminder_sent.is.null,reminder_sent.eq.false');
+
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
+    }
+
+    if (!appointments || appointments.length === 0) {
+      console.log('No appointments to remind today');
+      return res.status(200).json({ 
+        success: true, 
+        message: 'No reminders to send',
+        date: todayStr
+      });
+    }
+
+    console.log(`Found ${appointments.length} appointments to remind`);
+
+    // Send reminder emails
+    const results = await Promise.allSettled(
+      appointments.map(async (appt) => {
+        // Generate email template
+        const template = EMAIL_TEMPLATES.patientReminder({
+          name: appt.patient_name,
+          time: appt.appointment_time,
+          service: appt.reason_for_visit || 'General Checkup',
+        });
+
+        // Send email
+        const emailResult = await sendEmail(
+          appt.patient_email,
+          template.subject,
+          template.html
+        );
+
+        if (emailResult.success) {
+          // Mark reminder as sent
+          await supabaseAdmin
+            .from('DentistApp_appointments')
+            .update({ reminder_sent: true })
+            .eq('id', appt.id);
+        }
+
+        return {
+          id: appt.id,
+          email: appt.patient_email,
+          success: emailResult.success
+        };
+      })
+    );
+
+    const successful = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected');
+
+    console.log(`✅ Sent ${successful}/${appointments.length} reminders`);
+    
+    if (failed.length > 0) {
+      console.error('Failed reminders:', failed);
+    }
+
+    return res.status(200).json({
+      success: true,
+      date: todayStr,
+      sent: successful,
+      total: appointments.length,
+      failed: failed.length
+    });
+
+  } catch (error) {
+    console.error('Reminder job error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to send reminders',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+7. api/weekly-report.ts (Saturday Reports)
+typescriptimport type { NextApiRequest, NextApiResponse } from 'next';
+import { supabaseAdmin } from '../../lib/supabase';
+import { sendEmail } from '../../lib/email';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  // Security check
+  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Get date range (last 7 days in SAST)
+    const now = new Date();
+    const sastNow = new Date(now.getTime() + (2 * 60 * 60 * 1000));
+    const endDate = sastNow;
+    const startDate = new Date(sastNow);
+    startDate.setDate(startDate.getDate() - 7);
+
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+
+    console.log(`📊 Generating weekly report: ${startStr} to ${endStr}`);
+
+    // Get appointments for the week
+    const { data: appointments } = await supabaseAdmin
+      .from('DentistApp_appointments')
+      .select('*')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
+      .order('created_at', { ascending: false });
+
+    // Get conversations for the week
+    const { data: conversations } = await supabaseAdmin
+      .from('DentistApp_conversations')
+      .select('*')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString());
+
+    // Calculate statistics
+    const stats = {
+      totalAppointments: appointments?.length || 0,
+      confirmed: appointments?.filter((a) => a.status === 'confirmed').length || 0,
+      cancelled: appointments?.filter((a) => a.status === 'cancelled').length || 0,
+      completed: appointments?.filter((a) => a.status === 'completed').length || 0,
+      totalConversations: conversations?.length || 0,
+      uniquePatients: new Set(appointments?.map((a) => a.patient_email)).size,
+      serviceBreakdown: {} as Record<string, number>
+    };
+
+    // Calculate service breakdown
+    appointments?.forEach(appt => {
+      const service = appt.reason_for_visit || 'Not specified';
+      stats.serviceBreakdown[service] = (stats.serviceBreakdown[service] || 0) + 1;
+    });
+
+    // Generate HTML report
+    const reportHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; }
+          .container { padding: 20px; }
+          .header { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+          .stat-card { background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+          .stat-number { font-size: 36px; font-weight: bold; color: #667eea; margin: 0; }
+          .stat-label { color: #6b7280; margin: 5px 0 0 0; font-size: 14px; }
+          table { width: 100%; background: white; border-radius: 8px; overflow: hidden; margin: 20px 0; border-collapse: collapse; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+          th { background: #f3f4f6; padding: 12px; text-align: left; font-weight: bold; color: #374151; }
+          td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+          .status-confirmed { color: #10b981; font-weight: 600; }
+          .status-cancelled { color: #ef4444; font-weight: 600; }
+          .status-completed { color: #3b82f6; font-weight: 600; }
+          h2 { color: #1f2937; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📊 Weekly Performance Report</h1>
+            <p style="margin:10px 0 0 0;font-size:16px;opacity:0.9">${process.env.PRACTICE_NAME || 'Makhanda Smiles'}</p>
+            <p style="margin:5px 0 0 0;font-size:14px;opacity:0.8">Period: ${startDate.toLocaleDateString('en-ZA')} - ${endDate.toLocaleDateString('en-ZA')}</p>
+          </div>
+          <div class="content">
+            <h2>📈 Summary Statistics</h2>
+            
+            <div class="stat-grid">
+              <div class="stat-card">
+                <p class="stat-number">${stats.totalAppointments}</p>
+                <p class="stat-label">Total Appointments</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-number">${stats.confirmed}</p>
+                <p class="stat-label">Confirmed</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-number">${stats.completed}</p>
+                <p class="stat-label">Completed</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-number">${stats.cancelled}</p>
+                <p class="stat-label">Cancelled</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-number">${stats.uniquePatients}</p>
+                <p class="stat-label">Unique Patients</p>
+              </div>
+              <div class="stat-card">
+                <p class="stat-number">${stats.totalConversations}</p>
+                <p class="stat-label">AI Conversations</p>
+              </div>
+            </div>
+
+            <h2>🦷 Service Breakdown</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Service Type</th>
+                  <th style="text-align:right">Count</th>
+                  <th style="text-align:right">Percentage</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${Object.entries(stats.serviceBreakdown)
+                  .sort(([,a], [,b]) => b - a)
+                  .map(([service, count]) => `
+                    <tr>
+                      <td>${service}</td>
+                      <td style="text-align:right;font-weight:600">${count}</td>
+                      <td style="text-align:right">${((count / stats.totalAppointments) * 100).toFixed(1)}%</td>
+                    </tr>
+                  `).join('')}
+              </tbody>
+            </table>
+
+            <h2>📅 Recent Appointments</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Patient</th>
+                  <th>Service</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${appointments
+                  ?.slice(0, 20)
+                  .map(
+                    (a) => `
+                  <tr>
+                    <td>${new Date(a.appointment_date).toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })}</td>
+                    <td>${a.appointment_time}</td>
+                    <td>${a.patient_name}</td>
+                    <td>${a.reason_for_visit || 'Not specified'}</td>
+                    <td class="status-${a.status}">${a.status}</td>
+                  </tr>
+                `
+                  )
+                  .join('') || '<tr><td colspan="5" style="text-align:center;color:#6b7280">No appointments this week</td></tr>'}
+              </tbody>
+            </table>
+
+            <p style="margin-top:40px;padding-top:20px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;text-align:center">
+              This automated report was generated by Thandi AI Assistant<br>
+              Generated on: ${new Date().toLocaleString('en-ZA')}
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Send to doctor
+    await sendEmail(
+      process.env.DOCTOR_EMAIL!,
+      `📊 Weekly Report: ${stats.totalAppointments} Appointments (${startDate.toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' })})`,
+      reportHtml
+    );
+
+    console.log('✅ Weekly report sent to doctor');
+
+    return res.status(200).json({ 
+      success: true, 
+      stats,
+      period: { start: startStr, end: endStr }
+    });
+
+  } catch (error) {
+    console.error('Weekly report error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to generate report',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+8. vercel.json (Cron Jobs Configuration)
+json{
+  "crons": [
+    {
+      "path": "/api/scheduled-reminders",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/weekly-report",
+      "schedule": "0 6 * * 6"
+    }
+  ]
+}
+
+9. package.json (Dependencies)
+json{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "@vapi-ai/web": "^2.0.0",
+    "lucide-react": "^0.294.0",
+    "nodemailer": "^6.9.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/nodemailer": "^6.4.14",
+    "@types/react": "^18.2.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
+  }
+}
+
+10. Installation Commands
+bash# Install all dependencies
+npm install @supabase/supabase-js @vapi-ai/web lucide-react nodemailer @types/nodemailer
+
+# Or with yarn
+yarn add @supabase/supabase-js @vapi-ai/web lucide-react nodemailer @types/nodemailer
+
+🚀 DEPLOYMENT CHECKLIST
+
+✅ Create .env.local with all your credentials
+✅ Install dependencies: npm install
+✅ Set up Gmail App Password (Google Account → Security → App Passwords)
+✅ Generate CRON_SECRET: openssl rand -hex 32
+✅ Add vercel.json in project root
+✅
+Continue2:13 AMDeploy to Vercel: vercel --prod
+7. ✅ Test emails manually via /api/send-email
+8. ✅ Test reminders via /api/scheduled-reminders (with Bearer token)
+9. ✅ Test weekly report via /api/weekly-report (with Bearer token)
+10. ✅ Verify Supabase tables exist (from SQL I provided earlier)
+
+Everything is now ready! The system includes:
+
+✅ Smart conversational AI with personality & humor
+✅ Full appointment booking & rescheduling
+✅ Real confirmation emails (patient + doctor)
+✅ Daily 6am reminders (UTC+2)
+✅ Weekly Saturday reports to doctor
+✅ Conversation logging for analytics
+✅ Beautiful email templates
+✅ Production-ready error hand
